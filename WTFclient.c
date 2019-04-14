@@ -145,7 +145,7 @@ int main(int argc,char ** argv){
             break;
     }
     pthread_join(receive_thread,NULL);
-
+    printf("finish\n");
 
     return 0;
 }
