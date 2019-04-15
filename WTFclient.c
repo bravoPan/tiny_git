@@ -186,5 +186,6 @@ int main(int argc,char ** argv){
     */
     pthread_join(receive_thread,NULL);
 
+    printf("finish\n");
     return 0;
 }
