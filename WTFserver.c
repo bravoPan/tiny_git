@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <errno.h>
+#include "utility.h"
 
 typedef struct _thread_data{
   int sockfd;
@@ -44,42 +45,23 @@ void output_error(int e){
   exit(0);
 }
 
-ssize_t send_all(int socket,const void * data,size_t len,int sig){
-  while (!globalStop && len > 0){
-    ssize_t r = send(socket, data, len, sig);
-    if (r <= 0){return -1;}
-    len -= r;
-    data = (const char*)data + r;
-  }
-  if(len > 0){return -1;} else {return 1;}
-}
-
-ssize_t read_all(int socket,void * data,size_t len,int sig){
-    while (!globalStop && len > 0){
-      ssize_t r = recv(socket, data, len, sig);
-      if (r <= 0 && errno != EAGAIN){return -1;} else if(errno == EAGAIN){sleep(0);continue;}
-      len -= r;
-      data = (char *)data + r;
-    }
-    if(len > 0){return -1;} else {return 1;}
-}
-
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
   fcntl(tls_data -> sockfd,F_SETFD,flags | O_NONBLOCK);
+  printf("Connection Established\n");
   char str[1024];
-  strcpy(str,"From server: Connection successful\n");
-  printf("%s",str);
-  send(tls_data -> sockfd,str,strlen(str) + 1, 0);
   while(!globalStop){
       int msg_len = 0;
       int status = read_all(tls_data -> sockfd,&msg_len,sizeof(msg_len),0);
       if(status <= 0){break;}
-      printf("%d\n",msg_len);
-      read_all(tls_data -> sockfd,str,msg_len,0);
+      status = read_all(tls_data -> sockfd,str,msg_len,0);
+      if(status <= 0){break;}
+      printf("%d\n%s\n",msg_len,str);
       str[msg_len] = 0;
-      status = send_all(tls_data -> sockfd,str,msg_len + 1,0);
+      status = send_all(tls_data -> sockfd,&msg_len,sizeof(msg_len),0);
+      if(status <= 0){break;}
+      status = send_all(tls_data -> sockfd,str,msg_len,0);
       if(status <= 0){break;}
   }
   printf("Connection Terminated\n");
@@ -87,21 +69,6 @@ void * handle_customer(void * tls){
   close(tls_data -> sockfd);
   tls_data -> hasReturned = 1;
   return NULL;
-}
-
-int parse_port(char * port){
-  if(port == NULL){output_error(0);}
-  int len = strlen(port);
-  int p = 0;
-  int i;
-  for(i = 0;i < len;++i){
-    if(!isdigit(port[i])){
-      output_error(0);
-    }
-    p = p * 10 + (port[i] - '0');
-    if(p > 65535){output_error(0);}
-  }
-  return p;
 }
 
 void on_sig_intp(int signum){

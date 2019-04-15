@@ -12,74 +12,65 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "WTFclient.h"
+#include "utility.h"
 
 #define BUFFERSIZE 1024
 
 int sockfd, port;
-volatile char stop_receive = 0;
+volatile char globalStop = 0;
+volatile char responseReceived = 0;
+/*0: No response
+  1: Success
+  2: Error occurred
+*/
 
 void output_error(int errnum){
     switch (errnum) {
         case 0:
-        fprintf(stderr, "%s\n", "Usage: the arg is not correct");
+        fprintf(stderr, "%s\n", "Usage: WTFclient <command> <command args>\nAvailable commands: configure, checkout, update, upgrade, commit, push, create, destroy, add, remove, currentversion, history, rollback.\nRead docs for more info.");
         break;
+        case 1:
+        fprintf(stderr,"%s\n", "Usage: WTFclient configure <IP> <port>");
+        break;
+        case 2:
+        fprintf(stderr,"%s\n", "Unable to open configure file\n");
+        break;
+        case 3:
+        fprintf(stderr,"%s\n", "Invalid configure file. Please reconfigure.\n");
     }
     exit(0);
-}
-
-int parse_port(char *port){
-    if(port == NULL){output_error(0);}
-    int len = strlen(port);
-    int i, p = 0;
-    for(i = 0; i < len; i++){
-        if(!isdigit(port[i])){
-            output_error(0);
-        }
-        p = p * 10 + (port[i] - '0');
-        if(p > 65535){output_error(0);}
-    }
-    return p;
-}
-
-ssize_t send_all(int socket,const void * data,size_t len,int sig){
-  while (!stop_receive && len > 0){
-    ssize_t r = send(socket, data, len, sig);
-    if (r <= 0){return -1;}
-    len -= r;
-    data = (const char*)data + r;
-  }
-  if(len > 0){return -1;} else {return 1;}
 }
 
 void *receiveFromServer(void * unused){
   char buffer[BUFFERSIZE];
 
-  while(!stop_receive){
-    memset(buffer, 0, BUFFERSIZE);
-    int t,i;
-    t = read(sockfd, buffer, BUFFERSIZE);
-    if(t <= 0 && errno != EAGAIN){break;} else if(errno == EAGAIN){sleep(0);continue;}
-    printf("%s",buffer);
+  while(!globalStop){
+    int msg_len;
+    int status = read_all(sockfd,&msg_len,sizeof(msg_len),0);
+    if(status <= 0){break;}
+    printf("%d\n",msg_len);
+    status = read_all(sockfd,buffer,msg_len,0);
+    if(status <= 0){break;}
+    buffer[msg_len] = 0;
+    printf("%s\n",buffer);
+    responseReceived = 1;
   }
   printf("Server connection interrupted\n");
-  if(stop_receive == 0){printf("Server has shutdown\n");kill(0,SIGINT);}
+  if(globalStop == 0 && responseReceived == 0){printf("Server has shutdown\n");kill(0,SIGINT);}
   return NULL;
 }
 
 pthread_t receive_thread;
 
 void on_sig_intp(int sig_num){
-    stop_receive = 1;
+    globalStop = 1;
+    shutdown(sockfd,2);
     return;
 }
 
-
-
-int main(int argc,char ** argv){
-    if(argc != 3){
-        output_error(0);
-    }
-    port = parse_port(argv[2]);
+void connect_server(char * domainStr,char * portStr){
+    port = parse_port(portStr);
 
     struct sigaction act;
     memset(&act, 0, sizeof(act));
@@ -93,14 +84,14 @@ int main(int argc,char ** argv){
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    if((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0){
+    if((rv = getaddrinfo(domainStr, portStr, &hints, &servinfo)) != 0){
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     }
 
     char connected = 0;
 
     do{
-        for(p = servinfo; p != NULL && stop_receive == 0; p = p->ai_next) {
+        for(p = servinfo; p != NULL && !globalStop; p = p->ai_next) {
             if((sockfd = socket(p -> ai_family, p -> ai_socktype, p -> ai_protocol)) == -1){
                 perror("socket");
                 continue;
@@ -116,13 +107,53 @@ int main(int argc,char ** argv){
             printf("Fail connected. Will try again 3 seconds later.\n");
             sleep(3);
         }
-    } while(!connected && ! stop_receive);
+    } while(!connected && !globalStop);
 
-    if(stop_receive == 1)
+    if(connected){
+        printf("Connected to server\n");
+        freeaddrinfo(servinfo);
+    }
+}
+
+void process_checkout(int argc,char ** argv){
+    //Check argument
+    //Send message to server
+    //Wait for response
+    const char * str = "Test checkout";
+    int len = strlen(str);
+    send_all(sockfd,&len,sizeof(len),0);
+    send_all(sockfd,str,len,0);
+    while(!globalStop && responseReceived == 0){sleep(0);}
+    shutdown(sockfd,2);
+}
+void process_update(int argc,char ** argv){}
+
+int main(int argc,char ** argv){
+    if(argc < 2){output_error(0);}
+    if(strcmp(argv[1],"configure") == 0){
+        if(argc != 4){output_error(1);}
+        FILE *f = fopen(".configure","w");
+        if(f == NULL){output_error(2);}
+        fprintf(f,"%s\n",argv[2]);
+        fprintf(f,"%s\n",argv[3]);
+        fclose(f);
         return 0;
+    } else {
+        FILE *f = fopen(".configure","r");
+        if(f == NULL){output_error(2);}
+        char domain[64],port[64];
+        fgets(domain,64,f);
+        fgets(port,64,f);
+        int t;
+        t = strlen(domain);
+        if(domain[t - 1] != '\n'){output_error(3);} else {domain[t - 1] = 0;}
+        t = strlen(port);
+        if(port[t - 1] != '\n'){output_error(3);} else {port[t - 1] = 0;}
+        connect_server(domain,port);
+    }
 
-    printf("Connected to server\n");
-    freeaddrinfo(servinfo);
+    if(globalStop)
+        return 0;
 
     int flags = fcntl(sockfd,F_GETFL,0);
     fcntl(sockfd,F_SETFL,flags | O_NONBLOCK);
@@ -132,6 +163,14 @@ int main(int argc,char ** argv){
     char buffer[BUFFERSIZE];
     int i, j;
 
+    if(strcmp(argv[1],"checkout") == 0){
+        process_checkout(argc,argv);
+    } else if(strcmp(argv[1],"update") == 0){
+        process_update(argc,argv);
+    } else {
+        output_error(0);
+    }
+    /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);
         printf("Enter your message:\n");
@@ -144,8 +183,8 @@ int main(int argc,char ** argv){
         if(stop_receive)
             break;
     }
+    */
     pthread_join(receive_thread,NULL);
-
 
     return 0;
 }

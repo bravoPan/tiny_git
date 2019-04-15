@@ -1,0 +1,12 @@
+void process_checkout(int argc,char ** argv);
+void process_update(int argc,char ** argv);
+void process_upgrade(int argc,char ** argv);
+void process_commit(int argc,char ** argv);
+void process_push(int argc,char ** argv);
+void process_create(int argc,char ** argv);
+void process_destroy(int argc,char ** argv);
+void process_add(int argc,char ** argv);
+void process_remove(int argc,char ** argv);
+void process_currentversion(int argc,char ** argv);
+void process_history(int argc,char ** argv);
+void process_rollback(int argc,char ** argv);
