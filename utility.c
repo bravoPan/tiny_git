@@ -5,12 +5,15 @@
 #include <errno.h>
 #include <ncurses.h>
 #include <sys/socket.h>
+#include <sys/dir.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "utility.h"
 
 ssize_t send_all(int socket,const void * data,size_t len,int sig){
   while (!globalStop && len > 0){
     ssize_t r = send(socket, data, len, sig);
-    if (r <= 0){return -1;}
+    if (r <= 0 && errno != EAGAIN){return -1;} else if(errno == EAGAIN){sleep(0);}
     len -= r;
     data = (const char*)data + r;
   }
@@ -130,4 +133,45 @@ void PrintHashMap(HashMap * hmap){
     }
 }
 
-// ConstructStructureFromPath
+FolderStructureNode *ConstructStructureFromPath(const char * path){}
+//     DIR * dd = opendir(path);
+//     FolderStructureNode *root = calloc(sizeof(FolderStructureNode*), 1);
+//     root -> index = 0;
+//     root -> type = '2';
+//     root -> name = path;
+//     root -> folderHead = 0;
+//     FolderStructureNode *temp = root;
+//     if(dd == NULL){
+//         fprintf(stderr, "Invalid path:  %s\n", path);
+//         return -1;
+//     }
+//     struct dirent * dir_strct;
+//     int index = 1;
+//     while((dir_strct = readdir(dd)) != NULL){
+//         char *name = NULL;
+//         FolderStructureNode *next_node =  calloc(sizeof(FolderStructureNode *), 1);
+//         next_node -> index = index;
+//         __uint8_t dir_type = dir_strct -> d_type;
+//         switch (dir_type) {
+//             next_node ->
+//             case DT_REG:
+//
+//         }
+//
+//     }
+// }
+
+void SendFile(int socket, const char * path){
+    int fd = open(path, O_RDONLY);
+    struct stat fileStat;
+    stat(path, &fileStat);
+    int file_size = (int)fileStat.st_size, cur_token = 0;
+    char *text = malloc(file_size);
+    read(fd,text,file_size);
+    int msg_len = 8;
+    send_all(socket, &msg_len, sizeof(int), 0);
+    char msg[8] = {'s','e','n','d'};
+    memcpy(msg + 4,&file_size,4);
+    send_all(socket, msg, msg_len, 0);
+    send_all(socket, text, file_size, 0);
+}

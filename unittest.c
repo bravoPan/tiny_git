@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <inttypes.h>
+#include <fcntl.h>
+#include <sys/dir.h>
 #include "utility.h"
 
 const char * random_string(int len){
@@ -51,8 +53,13 @@ void testfindnode(){
     }
 }
 
+void testSendFile(){
+    FILE * fp = fopen("LICENSE", "r");
+    SendFile(5, fp);
+}
+
 int main(){
     // testinsert();
-
+    testSendFile();
     return 0;
 }

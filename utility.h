@@ -5,7 +5,12 @@ int parse_port(char * port);
 ssize_t send_all(int socket,const void * data,size_t len,int sig);
 ssize_t read_all(int socket,void * data,size_t len,int sig);
 
+/* Folder.txt
+index type hash nextFile folderHead
+*/
+
 typedef struct FolderStructureNode{
+    int index;
     char type;
     /*0: Uninitialized
       1: File
@@ -16,7 +21,12 @@ typedef struct FolderStructureNode{
     struct FolderStructureNode * nextFile, * folderHead;
 } FolderStructureNode;
 
+/* FolderDiff.txt
+index type name oldhash newHash nextFile folderHead
+*/
+
 typedef struct FolderDiffNode{
+    int index;
     char type;
     /*0: Uninitialized
       1: Add new file
@@ -49,7 +59,7 @@ HashMapNode * HashMapFind(HashMap * hmap, const char * key);
 void DestroyHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
-FolderStructureNode * ConstructStructureFromFile(FILE * fd);
+FolderStructureNode * ConstructStructureFromFile(const char * path);
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);
@@ -66,7 +76,7 @@ void SendMessage(const char * msg, int len);
 //Send message length first, then message body
 void SendPacket(const char * pkt,int len);
 //Send packet length first, then packet data, finally packet checksum
-void SendFile(int socket, FILE * fd);
+void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
 
 

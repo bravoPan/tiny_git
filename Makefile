@@ -1,8 +1,8 @@
-CFLAGS=-O2
+CFLAGS=-g
 
 all: WTFserver.o WTFclient.o utility.o
-	$(CC) WTFserver.o utility.o -o WTFserver -pthread
-	$(CC) WTFclient.o utility.o -o WTFclient -pthread
+	$(CC) WTFserver.o utility.o -o WTFserver -pthread -lncurses
+	$(CC) WTFclient.o utility.o -o WTFclient -pthread -lncurses
 
 unittest: utility.o unittest.o
 	$(CC) unittest.o utility.o -o unittest -lncurses

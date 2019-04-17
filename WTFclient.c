@@ -158,11 +158,12 @@ int main(int argc,char ** argv){
     int flags = fcntl(sockfd,F_GETFL,0);
     fcntl(sockfd,F_SETFL,flags | O_NONBLOCK);
 
-    pthread_create(&receive_thread, NULL, receiveFromServer, (void *) NULL);
+    //pthread_create(&receive_thread, NULL, receiveFromServer, (void *) NULL);
 
     char buffer[BUFFERSIZE];
     int i, j;
 
+    /*
     if(strcmp(argv[1],"checkout") == 0){
         process_checkout(argc,argv);
     } else if(strcmp(argv[1],"update") == 0){
@@ -170,6 +171,9 @@ int main(int argc,char ** argv){
     } else {
         output_error(0);
     }
+    */
+    SendFile(sockfd,"./utility.h");
+
     /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);
