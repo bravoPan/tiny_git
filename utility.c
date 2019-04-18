@@ -133,7 +133,7 @@ void PrintHashMap(HashMap * hmap){
     }
 }
 
-FolderStructureNode *ConstructStructureFromPath(const char * path){}
+FolderStructureNode *ConstructStructureFromPath(const char * path){return NULL;}
 //     DIR * dd = opendir(path);
 //     FolderStructureNode *root = calloc(sizeof(FolderStructureNode*), 1);
 //     root -> index = 0;
@@ -177,4 +177,10 @@ void SendFile(int socket, const char * path){
 }
 
 void DeleteFile(int socket, const char * path){
+    int msg_len = 8, size = strlen(path);
+    send_all(socket, &msg_len, sizeof(int), 0);
+    char msg[8] = {'d', 'e', 'l', 't'};
+    memcpy(msg + 4, &size, sizeof(int));
+    send_all(socket, msg, msg_len, 0);
+    send_all(socket, path, size, 0);
 }

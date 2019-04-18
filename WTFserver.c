@@ -57,19 +57,21 @@ void * handle_customer(void * tls){
       if(status <= 0){break;}
       status = read_all(tls_data -> sockfd,str,msg_len,0);
       if(status <= 0){break;}
-      if(msg_len != 8 || strncmp(str,"send",4) != 0){
-          printf("Invalid message received");
-          continue;
+      if(strncmp(str, "send", 4) == 0){
+          int filesize = *((int *)(str + 4));
+          char * filedata = malloc(filesize + 1);
+          read_all(tls_data -> sockfd,filedata,filesize,0);
+          filedata[filesize] = 0;
+        //   int fd = open(strcat("./test_dir/", &(int)filedata));
+        //   write()
+          printf("%d\n",filesize);
+          printf("%s\n",filedata);
+      }else if(strncmp(str, "delt", 4) == 0){
+          int path_size = *((int *) (str + 4));
+          char * path_str = malloc(path_size + 1);
+          read_all(tls_data -> sockfd, path_str, path_size, 0);
+          printf("The deleted file name is %s.\n", path_str);
       }
-      
-      int filesize = *((int *)(str + 4));
-      char * filedata = malloc(filesize + 1);
-      read_all(tls_data -> sockfd,filedata,filesize,0);
-      filedata[filesize] = 0;
-      int fd = open(strcat("./test_dir/", &(int)filedata));
-      write()
-      printf("%d\n",filesize);
-      printf("%s\n",filedata);
   }
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);

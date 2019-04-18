@@ -172,8 +172,8 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    SendFile(sockfd,"./utility.h");
-
+    // SendFile(sockfd,"./utility.h");
+    DeleteFile(sockfd, "./test_dir/a.txt");
     /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);
