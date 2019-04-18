@@ -88,3 +88,6 @@ typedef struct ProgressBar{
 
 void InitializeGUI(void);
 void DrawProgressBar(ProgressBar * bar);
+
+
+void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);

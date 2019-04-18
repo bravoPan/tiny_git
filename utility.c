@@ -165,7 +165,7 @@ void SendFile(int socket, const char * path){
     int fd = open(path, O_RDONLY);
     struct stat fileStat;
     stat(path, &fileStat);
-    int file_size = (int)fileStat.st_size, cur_token = 0;
+    int file_size = (int)fileStat.st_size;
     char *text = malloc(file_size);
     read(fd,text,file_size);
     int msg_len = 8;

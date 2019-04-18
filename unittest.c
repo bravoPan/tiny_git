@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include <stdint.h>
 #include <inttypes.h>
+#include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/dir.h>
 #include "utility.h"
 
@@ -53,13 +56,28 @@ void testfindnode(){
     }
 }
 
+/*
 void testSendFile(){
     FILE * fp = fopen("LICENSE", "r");
     SendFile(5, fp);
 }
+*/
+
+void testMD5(){
+    int fd = open("LICENSE", O_RDONLY);
+    struct stat fileStat;
+    stat("LICENSE", &fileStat);
+    int file_size = (int)fileStat.st_size;
+    uint32_t *md5_arr = calloc(sizeof(uint32_t), 4);
+    uint8_t *text = malloc(file_size);
+    read(fd, text, file_size);
+    GetMD5(text, file_size, md5_arr);
+    printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
+}
 
 int main(){
     // testinsert();
-    testSendFile();
+    // testSendFile();
+    testMD5();
     return 0;
 }
