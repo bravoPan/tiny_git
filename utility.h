@@ -72,13 +72,13 @@ void SerializeDifference(FolderDiffNode * diff);
 uint32_t ComputeCRC32(const char * data, int len);
 void ComputeMD5(const char * data, int len);
 
-void SendMessage(const char * msg, int len);
+void SendMessage(int socket, const char * msg, int len);
 //Send message length first, then message body
-void SendPacket(const char * pkt,int len);
+void SendPacket(int socket, const char * pkt,int len);
 //Send packet length first, then packet data, finally packet checksum
 void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
-
+void DeleteFile(int socket, const char * path);
 
 typedef struct ProgressBar{
     int posX,posY;

@@ -61,15 +61,15 @@ void * handle_customer(void * tls){
           printf("Invalid message received");
           continue;
       }
+      
       int filesize = *((int *)(str + 4));
       char * filedata = malloc(filesize + 1);
       read_all(tls_data -> sockfd,filedata,filesize,0);
       filedata[filesize] = 0;
-    //   int fd = open(strcat("./test_dir/", filedata))
-    //   write()
+      int fd = open(strcat("./test_dir/", &(int)filedata));
+      write()
       printf("%d\n",filesize);
       printf("%s\n",filedata);
-
   }
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);

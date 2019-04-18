@@ -175,3 +175,6 @@ void SendFile(int socket, const char * path){
     send_all(socket, msg, msg_len, 0);
     send_all(socket, text, file_size, 0);
 }
+
+void DeleteFile(int socket, const char * path){
+}
