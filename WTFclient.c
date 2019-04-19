@@ -21,7 +21,7 @@ int sockfd, port;
 volatile char globalStop = 0;
 volatile char responseReceived = 0;
 /*0: No response
-  1: Success
+  1: Successs
   2: Error occurred
 */
 
@@ -128,6 +128,15 @@ void process_checkout(int argc,char ** argv){
 }
 void process_update(int argc,char ** argv){}
 
+void process_create(int argc, char **argv){
+    int i, msg_len = 8, str_size = 0;
+    char *project = argv[2];
+    send_all(sockfd, &msg_len, sizeof(int), 0);
+    char msg[8] = {'c', 'r', 'e', 't'};
+    memcpy(msg + 4, &str_size, sizeof(int));
+    send_all(sockfd, msg, msg_len, 0);
+}
+
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}
     if(strcmp(argv[1],"configure") == 0){
@@ -172,8 +181,10 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
+    // process_create(argc, argv);
     // SendFile(sockfd,"./utility.h");
-    DeleteFile(sockfd, "./test_dir/a.txt");
+    // DeleteFile(sockfd, "./test_dir/a.txt");
+    // process_checkout(argc, argv);
     /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);

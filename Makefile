@@ -1,10 +1,10 @@
 CFLAGS=-g
 
-all: WTFserver.o WTFclient.o utility.o md5.o
+all: WTFserver.o WTFclient.o utility.o md5.o fdstruct.o
 	$(CC) WTFserver.o utility.o md5.o -o WTFserver -pthread -lncurses
 	$(CC) WTFclient.o utility.o md5.o -o WTFclient -pthread -lncurses
 
-unittest: utility.o unittest.o md5.o
+unittest: utility.o unittest.o md5.o fdstruct.o
 	$(CC) unittest.o utility.o md5.o -o unittest -lncurses
 
 %.o: %.c

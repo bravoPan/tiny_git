@@ -5,6 +5,12 @@ int parse_port(char * port);
 ssize_t send_all(int socket,const void * data,size_t len,int sig);
 ssize_t read_all(int socket,void * data,size_t len,int sig);
 
+
+/* .Mainfest: The records of all files and folders (exclude the manifest)
+    hash: 0 for folder, md5_hash for files
+    <hash> <type> <name> <nextIndex> <folderHead>\n
+*/
+
 /* Folder.txt
 index type hash nextFile folderHead
 */
@@ -17,7 +23,7 @@ typedef struct FolderStructureNode{
       2: Folder
     */
     char name[256];
-    char hash[64];
+    uint8_t hash[4];
     struct FolderStructureNode * nextFile, * folderHead;
 } FolderStructureNode;
 
@@ -26,7 +32,7 @@ index type name oldhash newHash nextFile folderHead
 */
 
 typedef struct FolderDiffNode{
-    int index;
+    char project[256];
     char type;
     /*0: Uninitialized
       1: Add new file
@@ -36,7 +42,7 @@ typedef struct FolderDiffNode{
       5: Delete Folder
       6: Modified Folder
     */
-    char name[256];
+    char *version;
     char oldHash[64],newHash[64];
     struct FolderDiffNode * nextFile, * folderHead;
 } FolderDiffNode;
@@ -60,6 +66,7 @@ void DestroyHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromFile(const char * path);
+FolderStructureNode* CreateFolderStructNode(int index, char *name, char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);

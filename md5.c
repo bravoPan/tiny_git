@@ -1,6 +1,6 @@
 /*
  * Simple MD5 implementation
- *
+ * Adapted from https://gist.github.com/creationix/4710780
  * Compile with: gcc -o md5 -O3 -lm md5.c
  */
 #include <stdio.h>
@@ -130,5 +130,4 @@ void GetMD5(const uint8_t *initial_msg, size_t initial_len, uint32_t * output_ar
 
     // cleanup
     free(msg);
-
 }

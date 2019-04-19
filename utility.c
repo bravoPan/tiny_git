@@ -133,7 +133,8 @@ void PrintHashMap(HashMap * hmap){
     }
 }
 
-FolderStructureNode *ConstructStructureFromPath(const char * path){return NULL;}
+
+// FolderStructureNode *ConstructStructureFromPath(const char * path){
 //     DIR * dd = opendir(path);
 //     FolderStructureNode *root = calloc(sizeof(FolderStructureNode*), 1);
 //     root -> index = 0;
@@ -147,6 +148,7 @@ FolderStructureNode *ConstructStructureFromPath(const char * path){return NULL;}
 //     }
 //     struct dirent * dir_strct;
 //     int index = 1;
+//
 //     while((dir_strct = readdir(dd)) != NULL){
 //         char *name = NULL;
 //         FolderStructureNode *next_node =  calloc(sizeof(FolderStructureNode *), 1);
@@ -155,9 +157,7 @@ FolderStructureNode *ConstructStructureFromPath(const char * path){return NULL;}
 //         switch (dir_type) {
 //             next_node ->
 //             case DT_REG:
-//
 //         }
-//
 //     }
 // }
 
@@ -192,4 +192,15 @@ void DeleteFile(int socket, const char * path){
     memcpy(msg + 4, &size, sizeof(int));
     send_all(socket, msg, msg_len, 0);
     send_all(socket, path, size, 0);
+}
+
+FolderStructureNode * CreateFolderStructNode(int index, char *name, char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
+    FolderStructureNode *node = calloc(sizeof(FolderStructureNode), 1);
+    node -> index = index;
+    memcpy(node -> name, name, 256);
+    memcpy(node -> hash, hash, 64);
+    node -> nextFile = nextFile;
+    node -> nextFile = nextFile;
+    node -> folderHead = folderHead;
+    return node;
 }
