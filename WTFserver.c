@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
@@ -32,6 +33,8 @@ volatile char globalStop = 0;
 int sockfd = -1;
 int selfpipe[2];
 struct pollfd pollfds[2];
+HashMap *repoHashMap;
+int project_num;
 
 void output_error(int e){
   switch(e){
@@ -43,6 +46,25 @@ void output_error(int e){
     break;
   }
   exit(0);
+}
+
+FolderStructureNode *create_repo(char *repo_name){
+    struct stat st;
+    int pro_dir_fd = open(repo_name, O_WRONLY | O_CREAT, 0666);
+    int mani_fd = open(".Manifest", O_WRONLY | O_CREAT, 0666);
+    FolderStructureNode *init_dir;
+    FolderStructureNode *mani;
+    init_dir = CreateFolderStructNode(0, 2, repo_name, 0, mani_fd, init_dir);
+    int index = 1;
+    // uint32_t *md5_arr = calloc(sizeof(unit32_t), 4);
+    // uint8_t *text = malloc()
+    // char mani_md5 = GetMD5()
+    // mani_fd = CreateFolderStructNode(1, 1, ".Manifest", 0, 0, init_dir);
+    return init_dir;
+}
+
+void init_file_system(){
+    repoHashMap = InitializeHashMap(20);
 }
 
 void * handle_customer(void * tls){
@@ -71,6 +93,8 @@ void * handle_customer(void * tls){
           char * path_str = malloc(path_size + 1);
           read_all(tls_data -> sockfd, path_str, path_size, 0);
           printf("The deleted file name is %s.\n", path_str);
+      }else if(strncmp(str, "cret", 4) == 0){
+          printf("Cret has been received.\n");
       }
   }
   printf("Connection Terminated\n");
