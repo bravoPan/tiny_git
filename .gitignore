@@ -1,0 +1,4 @@
+*.o
+WTFserver
+WTFclient
+unnittest
