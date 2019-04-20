@@ -201,11 +201,10 @@ FolderStructureNode * CreateFolderStructNode(const char type, const char *name, 
     return node;
 }
 
-// 0 for find success, -1 for find none
 int IsProject(const char *project_name){
     DIR *dir_fp = opendir(project_name);
     if(dir_fp == NULL){
-        printf("The project %s doest not exist\n", project_name);
+        // printf("The project %s doest not exist\n", project_name);
         return -1;
     }
     struct dirent *dir_info;

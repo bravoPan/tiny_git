@@ -52,10 +52,10 @@ void output_error(int e){
 
 FolderStructureNode *create_repo(char *repo_name){
     if(HashMapFind(repoHashMap, repo_name) != NULL){
-        printf("The repository %s has been created\n", repo_name);
+        printf("The repository %s has been existed on the server, cannot create again\n", repo_name);
         return NULL;
     }
-    printf("The name is %s\n", repo_name);
+    // printf("The name is %s\n", repo_name);
     if(mkdir(repo_name, 0777) == -1){
         printf("%s\n",strerror(errno));
     }
@@ -102,7 +102,13 @@ void * handle_customer(void * tls){
           read_all(tls_data -> sockfd, path_str, path_size, 0);
           printf("The deleted file name is %s.\n", path_str);
       }else if(strncmp(str, "cret", 4) == 0){
-          create_repo("test_repo");
+          int path_size = *((int *) (str + 4));
+          char *path_str = malloc(path_size + 1);
+        //   printf("Is's in the creating \n");
+          read_all(tls_data -> sockfd, path_str, path_size, 0);
+          path_str[path_size] = 0;
+        //   printf("The name of the create repo is %s\n", path_str);
+          create_repo(path_str);
       }
   }
   printf("Connection Terminated\n");

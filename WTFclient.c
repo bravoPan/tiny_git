@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/dir.h>
+#include <sys/stat.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -127,29 +129,30 @@ void process_checkout(int argc,char ** argv){
     while(!globalStop && responseReceived == 0){sleep(0);}
     shutdown(sockfd,2);
 }
+
 void process_update(int argc,char ** argv){}
 
 void process_create(int argc, char **argv){
-    int i, msg_len = 8, str_size = 0;
     char *repo_name = argv[2];
+    if(IsProject(repo_name) == 0){
+      printf("The repository %s has been created\n", repo_name);
+      return;
+    }
+
+    int i, msg_len = 8, str_size = strlen(repo_name);
     send_all(sockfd, &msg_len, sizeof(int), 0);
     char msg[8] = {'c', 'r', 'e', 't'};
     memcpy(msg + 4, &str_size, sizeof(int));
     send_all(sockfd, msg, msg_len, 0);
+    send_all(sockfd, repo_name, str_size, 0);
 
-    if(HashMapFind(repoHashMap, repo_name) != NULL){
-      printf("The repository %s has been created\n", repo_name);
-      return;
-    }
-    printf("The name is %\n", repo_name);
+
     if(mkdir(repo_name, 0777) == -1){
       printf("%s\n",strerror(errno));
     }
     int file_pointer = dirfd(opendir(repo_name));
     int manifest_pointer = openat(file_pointer, ".Manifest", O_WRONLY | O_CREAT,0666);
     write(manifest_pointer, "0\n",2);
-
-
 }
 
 int process_add(int argc, char **argv){
@@ -266,11 +269,11 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    // process_create(argc, argv);
+    process_create(argc, argv);
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);
-    process_add(argc, argv);
+    // process_add(argc, argv);
     /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);
