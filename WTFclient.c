@@ -130,12 +130,28 @@ void process_update(int argc,char ** argv){}
 
 void process_create(int argc, char **argv){
     int i, msg_len = 8, str_size = 0;
-    char *project = argv[2];
+    char *repo_name = argv[2];
     send_all(sockfd, &msg_len, sizeof(int), 0);
     char msg[8] = {'c', 'r', 'e', 't'};
     memcpy(msg + 4, &str_size, sizeof(int));
     send_all(sockfd, msg, msg_len, 0);
+
+    if(HashMapFind(repoHashMap, repo_name) != NULL){
+      printf("The repository %s has been created\n", repo_name);
+      return;
+    }
+    printf("The name is %\n", repo_name);
+    if(mkdir(repo_name, 0777) == -1){
+      printf("%s\n",strerror(errno));
+    }
+    int file_pointer = dirfd(opendir(repo_name));
+    int manifest_pointer = openat(file_pointer, ".Manifest", O_WRONLY | O_CREAT,0666);
+    write(manifest_pointer, "0\n",2);
+
+
 }
+
+
 
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}

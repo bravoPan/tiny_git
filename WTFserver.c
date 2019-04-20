@@ -56,7 +56,6 @@ FolderStructureNode *create_repo(char *repo_name){
         return NULL;
     }
     printf("The name is %s\n", repo_name);
-    struct stat st;
     if(mkdir(repo_name, 0777) == -1){
         printf("%s\n",strerror(errno));
     }

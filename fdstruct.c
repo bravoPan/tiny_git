@@ -70,6 +70,11 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   return nodearr;
 }
 
+
+
+
+
+
 // FolderStructureNode nodearr[10];
 
 /*
