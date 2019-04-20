@@ -61,7 +61,7 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
     } else {
       nodearr[index].nextFile = nodearr + ri;
     }
-    for(j = 0;j < 64;++j){
+    for(j = 0;j < 16;++j){
       fscanf(fd," %X",&hs);
       nodearr[index].hash[j] = hs;
     }

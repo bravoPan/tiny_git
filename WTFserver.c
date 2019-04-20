@@ -50,13 +50,24 @@ void output_error(int e){
 }
 
 FolderStructureNode *create_repo(char *repo_name){
+    printf("The name is %s\n", repo_name);
     struct stat st;
-    int pro_dir_fd = open(repo_name, O_WRONLY | O_CREAT, 0666);
+    int pro_dir_fd = mkdir(repo_name, 0777);
+    if(pro_dir_fd == -1){
+        printf("%s\n",strerror(errno));
+        // printf("The dir %s not \n", );
+    }
+    chdir(repo_name);
     int mani_fd = open(".Manifest", O_WRONLY | O_CREAT, 0666);
     FolderStructureNode *init_dir;
-    FolderStructureNode *mani;
-    init_dir = CreateFolderStructNode(0, 2, repo_name, 0, mani_fd, init_dir);
-    int index = 1;
+    // FolderStructureNode *mani;
+    init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
+    // HashMapInsert(repoHashMap, init_dir -> name, init_dir);
+
+    // write(mani_fd, "0\n.Manifest");
+    // uint8_t mani_md5 = GetMD5()
+    // mani = CreateFolderStructNode(1, ".Manifest", NULL, NULL, init_dir);
+
     // uint32_t *md5_arr = calloc(sizeof(unit32_t), 4);
     // uint8_t *text = malloc()
     // char mani_md5 = GetMD5()
@@ -85,8 +96,6 @@ void * handle_customer(void * tls){
           char * filedata = malloc(filesize + 1);
           read_all(tls_data -> sockfd,filedata,filesize,0);
           filedata[filesize] = 0;
-        //   int fd = open(strcat("./test_dir/", &(int)filedata));
-        //   write()
           printf("%d\n",filesize);
           printf("%s\n",filedata);
           int md5_arr_size = (int)(sizeof(uint32_t)*4);
@@ -100,6 +109,7 @@ void * handle_customer(void * tls){
           printf("The deleted file name is %s.\n", path_str);
       }else if(strncmp(str, "cret", 4) == 0){
           printf("Cret has been received.\n");
+          create_repo("test_repo");
       }
   }
   printf("Connection Terminated\n");

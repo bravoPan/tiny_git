@@ -181,7 +181,7 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    // process_create(argc, argv);
+    process_create(argc, argv);
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);

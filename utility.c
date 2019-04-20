@@ -194,12 +194,15 @@ void DeleteFile(int socket, const char * path){
     send_all(socket, path, size, 0);
 }
 
-FolderStructureNode * CreateFolderStructNode(int index, char *name, char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
+FolderStructureNode * CreateFolderStructNode(int index, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
     FolderStructureNode *node = calloc(sizeof(FolderStructureNode), 1);
     node -> index = index;
     memcpy(node -> name, name, 256);
-    memcpy(node -> hash, hash, 64);
-    node -> nextFile = nextFile;
+    if(hash != NULL) {
+        memcpy(node -> hash, hash, 16);
+    } else {
+        memset(node -> hash,0,16);
+    }
     node -> nextFile = nextFile;
     node -> folderHead = folderHead;
     return node;
