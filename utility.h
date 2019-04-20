@@ -9,7 +9,6 @@ ssize_t read_all(int socket,void * data,size_t len,int sig);
 /* .Mainfest: The records of all files and folders (exclude the manifest)
     hash:  for folder, md5_hash for files
     <index> <type> <folderHead> <nextFile>\n<hash>\n<name>\n
-
 */
 
 /* Folder.txt
