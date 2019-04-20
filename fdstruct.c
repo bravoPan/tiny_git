@@ -44,6 +44,7 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   if(fd == NULL){return NULL;}
   int nodeCount;
   fscanf(fd," %d",&nodeCount);
+  if(nodeCount == 0){return NULL;}
   FolderStructureNode * nodearr = calloc(sizeof(FolderStructureNode),nodeCount);
   int i,j;
   int index,type,li,ri,hs;
@@ -70,10 +71,20 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   return nodearr;
 }
 
+FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path){
+    FolderStructureNode *temp = root;
+    while(temp != NULL){
+        if(strcmp(path, temp->name) == 0){
+            return temp;
+        }
+        temp = temp -> nextFile;
+    }
+    return NULL;
+}
 
-
-
-
+// FolderStructureNode *SearchHeadNode(const char *head_name, FolderStructureNode *root){
+//
+// }
 
 // FolderStructureNode nodearr[10];
 

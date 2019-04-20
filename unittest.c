@@ -75,10 +75,25 @@ void testMD5(){
     printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
 }
 
+void testGetMD5FileInfo(){
+    MD5FileInfo * testinfo = GetMD5FileInfo(".gitignore");
+    printf("The file name is: %s\nThe file size is %d\nThe file md5 is %d\n", testinfo->file_name, testinfo->file_size, (int)testinfo->hash);
+    free(testinfo);
+    // printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", testinfo.md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
+}
+
+void testIsProject(){
+    int test_dir = IsProject("./test_dir");
+    printf("The IsProject result for test_dir is %d\n", test_dir);
+    int test_repo = IsProject("./test_repo");
+    printf("The IsProject result for test_repo is %d\n", test_repo);
+}
 
 int main(){
+    // testGetMD5FileInfo();
+    // testIsProject();
     // testinsert();
     // testSendFile();
-    testMD5();
+    // testMD5();
     return 0;
 }

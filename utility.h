@@ -8,6 +8,7 @@ ssize_t read_all(int socket,void * data,size_t len,int sig);
 
 /* .Mainfest: The records of all files and folders (exclude the manifest)
     hash:  for folder, md5_hash for files
+    <nodecount>
     <index> <type> <folderHead> <nextFile>\n<hash>\n<name>\n
 */
 
@@ -47,6 +48,12 @@ typedef struct FolderDiffNode{
     struct FolderDiffNode * nextFile, * folderHead;
 } FolderDiffNode;
 
+typedef struct MD5FileInfo{
+    char file_name[256];
+    uint8_t hash[16];
+    int file_size;
+}MD5FileInfo;
+
 typedef struct HashMapNode{
     const char * key;
     void * nodePtr;
@@ -68,6 +75,7 @@ void PrintHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromFile(const char * path);
 FolderStructureNode* CreateFolderStructNode(int index, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
+FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path); 
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);
 void DestroyDifference(FolderDiffNode * diff);
@@ -87,7 +95,7 @@ void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
 void DeleteFile(int socket, const char * path);
 
-void IsProject(const char *path);
+int IsProject(const char *path);
 
 typedef struct ProgressBar{
     int posX,posY;
@@ -100,3 +108,4 @@ void DrawProgressBar(ProgressBar * bar);
 
 
 void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);
+MD5FileInfo *GetMD5FileInfo(const char *file_name);
