@@ -50,6 +50,10 @@ void output_error(int e){
 }
 
 FolderStructureNode *create_repo(char *repo_name){
+    if(HashMapFind(repoHashMap, repo_name) != NULL){
+        printf("The repository %s has been created\n", repo_name);
+        return NULL;
+    }
     printf("The name is %s\n", repo_name);
     struct stat st;
     int pro_dir_fd = mkdir(repo_name, 0777);
@@ -57,8 +61,7 @@ FolderStructureNode *create_repo(char *repo_name){
         printf("%s\n",strerror(errno));
         // printf("The dir %s not \n", );
     }
-    chdir(repo_name);
-    int mani_fd = open(".Manifest", O_WRONLY | O_CREAT, 0666);
+    int mani_fd = openat(pro_dir_fd,".Manifest", O_WRONLY | O_CREAT, 0666);
     FolderStructureNode *init_dir;
     // FolderStructureNode *mani;
     init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
@@ -99,7 +102,6 @@ void * handle_customer(void * tls){
           read_all(tls_data -> sockfd, path_str, path_size, 0);
           printf("The deleted file name is %s.\n", path_str);
       }else if(strncmp(str, "cret", 4) == 0){
-          printf("Cret has been received.\n");
           create_repo("test_repo");
       }
   }
@@ -107,8 +109,6 @@ void * handle_customer(void * tls){
   shutdown(tls_data -> sockfd,2);
   close(tls_data -> sockfd);
   tls_data -> hasReturned = 1;
-
-
 
   return NULL;
 }
@@ -141,6 +141,8 @@ int main(int argc,char ** argv){
   setsockopt(sockfd,SOL_SOCKET,SO_LINGER,&lin,sizeof(lin));
   int reuse = 1;
   setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(int));
+
+  init_file_system();
 
   struct sockaddr_in address;
   int addrlen = sizeof(address);
