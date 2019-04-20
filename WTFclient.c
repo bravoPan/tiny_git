@@ -20,6 +20,7 @@
 int sockfd, port;
 volatile char globalStop = 0;
 volatile char responseReceived = 0;
+// HashMap *projectHashMap;
 /*0: No response
   1: Successs
   2: Error occurred
@@ -137,6 +138,50 @@ void process_create(int argc, char **argv){
     send_all(sockfd, msg, msg_len, 0);
 }
 
+int process_add(int argc, char **argv){
+    char *project_name = argv[2], *file_name = argv[3];
+
+    // project_name = "test_repo";
+    // file_name = "secondary_repo/second.txt";
+    int file_fd;
+    if(IsProject(project_name) == -1){
+        printf("Project doest not exist%s\n", project_name);
+        return -1;
+    }
+    chdir(project_name);
+    FolderStructureNode *root = ConstructStructureFromFile(".Manifest");
+
+    char *path = malloc(sizeof(256)), token;
+    int index = 0, i, len = strlen(file_name);
+    for(i = 0; i < len; i++){
+        path[index++] = file_name[i];
+        if(token == '/'){
+
+            path[index] = 0;
+            if(chdir(path) == -1){
+                printf("File %s does not exist\n", file_name);
+                return -1;
+            }
+            index = 0;
+        }
+    }
+
+    path[index] = 0;
+    printf("The file name is %s\n", path);
+    if((file_fd = open(file_name, O_RDONLY)) == -1){
+        printf("File %s does not exist.\n", file_name);
+        return -1;
+    }
+
+    MD5FileInfo *fileinfo = GetMD5FileInfo(file_name);
+
+    return 0;
+}
+
+void init_client_file_system(){
+
+}
+
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}
     if(strcmp(argv[1],"configure") == 0){
@@ -181,10 +226,11 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    process_create(argc, argv);
+    // process_create(argc, argv);
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);
+    process_add(argc, argv);
     /*
     while (!stop_receive) {
         memset(buffer, 0, BUFFERSIZE);

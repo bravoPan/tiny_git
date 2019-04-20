@@ -176,13 +176,7 @@ void SendFile(int socket, const char * path){
     send_all(socket, text, file_size, 0);
     uint32_t *md5_arr = calloc(sizeof(uint32_t),4);
     send_all(socket,md5_arr,sizeof(md5_arr),0);
-
-
-
     //printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
-
-
-
 }
 
 void DeleteFile(int socket, const char * path){
@@ -208,6 +202,34 @@ FolderStructureNode * CreateFolderStructNode(int index, const char *name, const 
     return node;
 }
 
-// int IsProject(const char *project_name){
-//
-// }
+// 0 for find success, -1 for find none
+int IsProject(const char *project_name){
+    DIR *dir_fp = opendir(project_name);
+    if(dir_fp == NULL){
+        printf("The project %s doest not exist\n", project_name);
+        return -1;
+    }
+    struct dirent *dir_info;
+    while ((dir_info = readdir(dir_fp)) != NULL) {
+        if(strcmp(dir_info -> d_name, ".Manifest") == 0)
+            return 0;
+    }
+    return -1;
+}
+
+MD5FileInfo *GetMD5FileInfo(const char *file_name){
+    int file_fd = open(file_name, O_RDONLY);
+    MD5FileInfo *fileinfo = malloc(sizeof(MD5FileInfo));
+    memcpy(fileinfo->file_name, file_name, strlen(file_name));
+    uint32_t *file_md5 = calloc(sizeof(uint32_t), 4);
+    struct stat fileStat;
+    stat(file_name, &fileStat);
+    int file_size = (int)fileStat.st_size;
+    fileinfo->file_size = fileStat.st_size;
+    uint8_t *text = malloc(file_size);
+    read(file_fd, text, file_size);
+    GetMD5(text, file_size, file_md5);
+    free(text);
+    memcpy(fileinfo->hash, file_md5, 16);
+    return fileinfo;
+}

@@ -64,12 +64,13 @@ FolderStructureNode *create_repo(char *repo_name){
     int mani_fd = openat(dir_fd,".Manifest", O_WRONLY | O_CREAT, 0666);
     FolderStructureNode *init_dir;
     FolderStructureNode *mani;
+    write(mani_fd, "0\n", 2);
     init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
     HashMapInsert(repoHashMap, init_dir -> name, init_dir);
     return init_dir;
 }
 
-void init_file_system(){
+void init_server_file_system(){
     repoHashMap = InitializeHashMap(20);
 }
 
@@ -142,7 +143,7 @@ int main(int argc,char ** argv){
   int reuse = 1;
   setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(int));
 
-  init_file_system();
+  init_server_file_system();
 
   struct sockaddr_in address;
   int addrlen = sizeof(address);
