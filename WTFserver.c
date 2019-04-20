@@ -56,10 +56,10 @@ FolderStructureNode *create_repo(char *repo_name){
     FolderStructureNode *mani;
     init_dir = CreateFolderStructNode(0, 2, repo_name, 0, mani_fd, init_dir);
     int index = 1;
-    // uint32_t *md5_arr = calloc(sizeof(unit32_t), 4);
+    uint32_t *md5_arr = calloc(sizeof(unit32_t), 4);
     // uint8_t *text = malloc()
     // char mani_md5 = GetMD5()
-    // mani_fd = CreateFolderStructNode(1, 1, ".Manifest", 0, 0, init_dir);
+    mani_fd = CreateFolderStructNode(1, 1, ".Manifest", 0, 0, init_dir);
     return init_dir;
 }
 
