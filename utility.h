@@ -87,6 +87,8 @@ void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
 void DeleteFile(int socket, const char * path);
 
+void IsProject(const char *path);
+
 typedef struct ProgressBar{
     int posX,posY;
     int length;

@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <dirent.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -56,14 +57,13 @@ FolderStructureNode *create_repo(char *repo_name){
     }
     printf("The name is %s\n", repo_name);
     struct stat st;
-    int pro_dir_fd = mkdir(repo_name, 0777);
-    if(pro_dir_fd == -1){
+    if(mkdir(repo_name, 0777) == -1){
         printf("%s\n",strerror(errno));
-        // printf("The dir %s not \n", );
     }
-    int mani_fd = openat(pro_dir_fd,".Manifest", O_WRONLY | O_CREAT, 0666);
+    int dir_fd = dirfd(opendir(repo_name));
+    int mani_fd = openat(dir_fd,".Manifest", O_WRONLY | O_CREAT, 0666);
     FolderStructureNode *init_dir;
-    // FolderStructureNode *mani;
+    FolderStructureNode *mani;
     init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
     HashMapInsert(repoHashMap, init_dir -> name, init_dir);
     return init_dir;

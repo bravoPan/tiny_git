@@ -207,3 +207,7 @@ FolderStructureNode * CreateFolderStructNode(int index, const char *name, const 
     node -> folderHead = folderHead;
     return node;
 }
+
+// int IsProject(const char *project_name){
+//
+// }
