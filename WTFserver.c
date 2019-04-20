@@ -62,16 +62,7 @@ FolderStructureNode *create_repo(char *repo_name){
     FolderStructureNode *init_dir;
     // FolderStructureNode *mani;
     init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
-    // HashMapInsert(repoHashMap, init_dir -> name, init_dir);
-
-    // write(mani_fd, "0\n.Manifest");
-    // uint8_t mani_md5 = GetMD5()
-    // mani = CreateFolderStructNode(1, ".Manifest", NULL, NULL, init_dir);
-
-    // uint32_t *md5_arr = calloc(sizeof(unit32_t), 4);
-    // uint8_t *text = malloc()
-    // char mani_md5 = GetMD5()
-    // mani_fd = CreateFolderStructNode(1, 1, ".Manifest", 0, 0, init_dir);
+    HashMapInsert(repoHashMap, init_dir -> name, init_dir);
     return init_dir;
 }
 
