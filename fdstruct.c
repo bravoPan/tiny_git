@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <string.h>
+#include <unistd.h>
 #include "utility.h"
 
 int ComputeNewIndex(FolderStructureNode * tree, int beginIndex){
@@ -11,32 +13,32 @@ int ComputeNewIndex(FolderStructureNode * tree, int beginIndex){
   return ComputeNewIndex(tree -> nextFile, n);
 }
 
-void RecursivePrintFdStruct(FolderStructureNode * root){
+void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
   if(root == NULL){return;}
-  printf("%d %d ",root -> index, (int)root -> type);
+  fprintf(fd, "%d %d ",root -> index, (int)root -> type);
   if(root -> folderHead == NULL){
-    printf("-1 ");
+    fprintf(fd, "-1 ");
   } else {
-    printf("%d ",root -> folderHead -> index);
+    fprintf(fd, "%d ",root -> folderHead -> index);
   }
   if(root -> nextFile == NULL){
-    printf("-1\n");
+    fprintf(fd, "-1\n");
   } else {
-    printf("%d\n",root -> nextFile -> index);
+    fprintf(fd, "%d\n",root -> nextFile -> index);
   }
   int i;
   for(i = 0;i < 64;++i){
-    printf("%02X ",(int)root -> hash[i]);
+    fprintf(fd, "%02X ",(int)root -> hash[i]);
   }
-  printf("\n%s\n",root -> name);
-  RecursivePrintFdStruct(root -> folderHead);
-  RecursivePrintFdStruct(root -> nextFile);
+  fprintf(fd, "\n%s\n",root -> name);
+  RecursivePrintFdStruct(root -> folderHead, fd);
+  RecursivePrintFdStruct(root -> nextFile, fd);
 }
 
-void SerializeStructure(FolderStructureNode * tree){
+void SerializeStructure(FolderStructureNode * tree, FILE *fd){
   int nodeCount = ComputeNewIndex(tree,0);
-  printf("%d\n",nodeCount);
-  RecursivePrintFdStruct(tree);
+  fprintf(fd, "%d\n",nodeCount);
+  RecursivePrintFdStruct(tree, fd);
 }
 
 FolderStructureNode * ConstructStructureFromFile(const char * path){
@@ -68,6 +70,7 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
     }
     fscanf(fd," %s",nodearr[index].name);
   }
+  fclose(fd);
   return nodearr;
 }
 
@@ -81,6 +84,7 @@ FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *pat
     }
     return NULL;
 }
+
 
 // FolderStructureNode *SearchHeadNode(const char *head_name, FolderStructureNode *root){
 //

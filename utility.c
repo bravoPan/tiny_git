@@ -133,7 +133,6 @@ void PrintHashMap(HashMap * hmap){
     }
 }
 
-
 // FolderStructureNode *ConstructStructureFromPath(const char * path){
 //     DIR * dd = opendir(path);
 //     FolderStructureNode *root = calloc(sizeof(FolderStructureNode*), 1);
@@ -188,10 +187,10 @@ void DeleteFile(int socket, const char * path){
     send_all(socket, path, size, 0);
 }
 
-FolderStructureNode * CreateFolderStructNode(int index, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
+FolderStructureNode * CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
     FolderStructureNode *node = calloc(sizeof(FolderStructureNode), 1);
-    node -> index = index;
-    memcpy(node -> name, name, 256);
+    node -> type = type;
+    memcpy(node -> name, name, strlen(name) + 1);
     if(hash != NULL) {
         memcpy(node -> hash, hash, 16);
     } else {

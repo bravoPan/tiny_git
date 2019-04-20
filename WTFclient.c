@@ -141,8 +141,9 @@ void process_create(int argc, char **argv){
 int process_add(int argc, char **argv){
     char *project_name = argv[2], *file_name = argv[3];
 
-    // project_name = "test_repo";
-    // file_name = "secondary_repo/second.txt";
+    project_name = "test_repo";
+    file_name = "t/second.txt";
+
     int file_fd;
     if(IsProject(project_name) == -1){
         printf("Project doest not exist%s\n", project_name);
@@ -150,31 +151,56 @@ int process_add(int argc, char **argv){
     }
     chdir(project_name);
     FolderStructureNode *root = ConstructStructureFromFile(".Manifest");
+    FolderStructureNode *parent = root;
+    FILE * mani_fd = fopen(".Manifest", "w");
 
     char *path = malloc(sizeof(256)), token;
     int index = 0, i, len = strlen(file_name);
     for(i = 0; i < len; i++){
-        path[index++] = file_name[i];
-        if(token == '/'){
-
+        if(file_name[i] == '/'){
             path[index] = 0;
+            //create a folder node
+            FolderStructureNode *temp = SearchStructNode(root, path);
+            if(temp == NULL){
+                FolderStructureNode *new_path = CreateFolderStructNode(2, path, 0, NULL, NULL);
+                //if root isn't existed
+                if(root == NULL){
+                    root = new_path;
+                    parent = root;
+                }else {
+                    new_path -> nextFile = parent -> folderHead;
+                    parent -> folderHead = new_path;
+                }
+                temp = new_path;
+            }
+            parent = temp;
             if(chdir(path) == -1){
                 printf("File %s does not exist\n", file_name);
                 return -1;
             }
             index = 0;
-        }
+        }else
+            path[index++] = file_name[i];
     }
 
     path[index] = 0;
     printf("The file name is %s\n", path);
-    if((file_fd = open(file_name, O_RDONLY)) == -1){
-        printf("File %s does not exist.\n", file_name);
+    if((file_fd = open(path, O_RDONLY)) == -1){
+        printf("File %s does not exist.\n", path);
         return -1;
     }
 
-    MD5FileInfo *fileinfo = GetMD5FileInfo(file_name);
+    MD5FileInfo *fileinfo = GetMD5FileInfo(path);
+    FolderStructureNode *new_file = CreateFolderStructNode(1, path, (char *)fileinfo->hash, NULL, NULL);
 
+    if(root == NULL)
+        root = new_file;
+    else{
+        new_file -> nextFile = parent -> folderHead;
+        parent -> folderHead = new_file;
+    }
+
+    SerializeStructure(root, mani_fd);
     return 0;
 }
 
