@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -88,6 +89,10 @@ void * handle_customer(void * tls){
         //   write()
           printf("%d\n",filesize);
           printf("%s\n",filedata);
+          int md5_arr_size = (int)(sizeof(uint32_t)*4);
+          uint32_t* md5_arr = malloc(sizeof(uint32_t));
+          read_all(tls_data ->sockfd, md5_arr,md5_arr_size,0);
+          printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
       }else if(strncmp(str, "delt", 4) == 0){
           int path_size = *((int *) (str + 4));
           char * path_str = malloc(path_size + 1);
@@ -101,6 +106,9 @@ void * handle_customer(void * tls){
   shutdown(tls_data -> sockfd,2);
   close(tls_data -> sockfd);
   tls_data -> hasReturned = 1;
+
+
+
   return NULL;
 }
 

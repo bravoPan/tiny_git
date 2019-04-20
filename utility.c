@@ -174,6 +174,15 @@ void SendFile(int socket, const char * path){
     memcpy(msg + 4,&file_size,4);
     send_all(socket, msg, msg_len, 0);
     send_all(socket, text, file_size, 0);
+    uint32_t *md5_arr = calloc(sizeof(uint32_t),4);
+    send_all(socket,md5_arr,sizeof(md5_arr),0);
+
+
+
+    //printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
+
+
+
 }
 
 void DeleteFile(int socket, const char * path){
