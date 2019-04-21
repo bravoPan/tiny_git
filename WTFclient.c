@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -118,18 +119,6 @@ void connect_server(char * domainStr,char * portStr){
     }
 }
 
-void process_checkout(int argc,char ** argv){
-    //Check argument
-    //Send message to server
-    //Wait for response
-    const char * str = "Test checkout";
-    int len = strlen(str);
-    send_all(sockfd,&len,sizeof(len),0);
-    send_all(sockfd,str,len,0);
-    while(!globalStop && responseReceived == 0){sleep(0);}
-    shutdown(sockfd,2);
-}
-
 void process_update(int argc,char ** argv){}
 
 void process_create(int argc, char **argv){
@@ -221,6 +210,43 @@ int process_add(int argc, char **argv){
     return 0;
 }
 
+int process_checkout(int argc, char **argv){
+    char *repo_name = argv[2];
+    if(IsProject(repo_name) == 0){
+        printf("The project %s has existed on the client, it cannot be checked out\n", repo_name);
+        return -1;
+    }
+    char command[4] = {'c', 'k', 'o', 't'};
+    SendMessage(sockfd, command, repo_name);
+
+    //Receive .Manifest from server
+    char *mani_data = ReceiveFile(sockfd);
+    char name[256];
+    uint32_t hash[4];
+    int file_size;
+    memcpy(name, mani_data, 256);
+    memcpy(&hash, mani_data + 256, 128);
+    memcpy(&file_size, mani_data + 256 + 128, 4);
+    char content[file_size + 1];
+    memcpy(content, mani_data + 256 + 128 + 4, file_size + 1);
+
+    printf("The file name is %s\n", name);
+    printf("The hash is %" PRIx32 "%" PRIx32 "%" PRIx32 "%" PRIx32"\n", hash[0], hash[1], hash[2], hash[3]);
+    printf("The file size is %d\n", file_size);
+    printf("The real content is %s\n", mani_data);
+
+    // int i, msg_len = 8, repo_len = strlen(repo_name);
+    // send_all(sockfd, &msg_len, sizeof(int), 0);
+    // char msg[8] = {'c', 'k', 'o', 't'};
+    // memcpy(msg + 4, &repo_len, sizeof(int));
+    // send_all(sockfd, msg, msg_len, 0);
+    // send_all(sockfd, repo_name, repo_len, 0);
+    return 0;
+}
+
+// int process_push(int argc, char **argv){
+// }
+
 void init_client_file_system(){
 
 }
@@ -269,7 +295,7 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    process_create(argc, argv);
+    process_checkout(argc, argv);
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);
