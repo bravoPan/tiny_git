@@ -67,9 +67,21 @@ void output_error(int errnum){
 // }
 
 int process_push(int argc, char ** argv){
-
+  char command[4] = "push";
+  char* repo_name = argv[2];
+  if(SendMessage(sockfd, command, repo_name)==-1){
+    printf("error\n");
+  }
+  return 0;
 }
-
+void process_destroy(int argc, char ** argv){
+  char command[4] = "dest";
+  char* repo_name = argv[2];
+  if(SendMessage(sockfd, command, repo_name) ==-1){
+    printf("error\n");
+  }
+  return 0;
+}
 
 
 void *receiveFromServer(void * unused){
@@ -236,30 +248,30 @@ int process_add(int argc, char **argv){
     return 0;
 }
 
-int process_checkout(int argc, char **argv){
-    char *repo_name = argv[2];
-    if(IsProject(repo_name) == 0){
-        printf("The project %s has existed on the client, it cannot be checked out\n", repo_name);
-        return -1;
-    }
-    char command[4] = {'c', 'k', 'o', 't'};
-    SendMessage(sockfd, command, repo_name);
-
-    //Receive .Manifest from server
-    char *mani_data = ReceiveFile(sockfd);
-    char name[256];
-    uint32_t hash[4];
-    int file_size;
-    memcpy(name, mani_data, 256);
-    memcpy(&hash, mani_data + 256, 128);
-    memcpy(&file_size, mani_data + 256 + 128, 4);
-    char content[file_size + 1];
-    memcpy(content, mani_data + 256 + 128 + 4, file_size + 1);
-
-    printf("The file name is %s\n", name);
-    printf("The hash is %" PRIx32 "%" PRIx32 "%" PRIx32 "%" PRIx32"\n", hash[0], hash[1], hash[2], hash[3]);
-    printf("The file size is %d\n", file_size);
-    printf("The real content is %s\n", mani_data);
+ int process_checkout(int argc, char **argv){
+    // char *repo_name = argv[2];
+    // if(IsProject(repo_name) == 0){
+    //     printf("The project %s has existed on the client, it cannot be checked out\n", repo_name);
+    //     return -1;
+    // }
+    // char command[4] = {'c', 'k', 'o', 't'};
+    // SendMessage(sockfd, command, repo_name);
+    //
+    // //Receive .Manifest from server
+    // char *mani_data = ReceiveFile(sockfd);
+    // char name[256];
+    // uint32_t hash[4];
+    // int file_size;
+    // memcpy(name, mani_data, 256);
+    // memcpy(&hash, mani_data + 256, 128);
+    // memcpy(&file_size, mani_data + 256 + 128, 4);
+    // char content[file_size + 1];
+    // memcpy(content, mani_data + 256 + 128 + 4, file_size + 1);
+    //
+    // printf("The file name is %s\n", name);
+    // printf("The hash is %" PRIx32 "%" PRIx32 "%" PRIx32 "%" PRIx32"\n", hash[0], hash[1], hash[2], hash[3]);
+    // printf("The file size is %d\n", file_size);
+    // printf("The real content is %s\n", mani_data);
 
     // int i, msg_len = 8, repo_len = strlen(repo_name);
     // send_all(sockfd, &msg_len, sizeof(int), 0);
@@ -326,7 +338,8 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
-    process_checkout(argc, argv);
+    // process_checkout(argc, argv);
+    process_push(argc,argv);
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);

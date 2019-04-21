@@ -100,7 +100,12 @@ int server_checkout(int cli_socket, const char *repo){
     }
     return 0;
 }
-
+int exist_checking(const char* file_name){
+  if(HashMapFind(repoHashMap, file_name) == NULL){
+    return -1;
+  }
+  return 0;
+}
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
@@ -132,6 +137,29 @@ void * handle_customer(void * tls){
         // printf("%s\n", );
         server_checkout(tls_data -> sockfd, receive_data + 8);
         free(receive_data);
+      }else if(strncmp(command, "push",4) == 0){
+        char *repo_name = receive_data+8;
+        if(exist_checking(repo_name) == -1){
+          printf("error: file "%s" not exist\n",repo_name);
+          return;
+        }
+      }else if(strncmp(command, "dist",4) == 0){
+        char *repo_name = receive_data +8;
+        if(exist_checking(repo_name) == -1){
+          printf("error: file "%s" not exist\n",repo_name);
+          return;
+        }
+
+
+
+
+
+
+
+
+
+
+
       }
 
     //   else if(strncmp(str, "send", 4) == 0){
