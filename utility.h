@@ -72,29 +72,34 @@ HashMapNode * HashMapFind(HashMap * hmap, const char * key);
 void DestroyHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
-FolderStructureNode * ConstructStructureFromFile(const char * path);
-FolderStructureNode* CreateFolderStructNode(int index, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
+FolderStructureNode * ConstructStructureFromFile(const char *path);
+FolderStructureNode* CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
-FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path); 
+FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);
 void DestroyDifference(FolderDiffNode * diff);
 void ApplyDiff(FolderStructureNode * oldTree, FolderDiffNode * diff);
 void RevertDiff(FolderStructureNode * newTree, FolderDiffNode * diff);
-void SerializeStructure(FolderStructureNode * tree);
-void SerializeDifference(FolderDiffNode * diff);
+void SerializeStructure(FolderStructureNode * tree, FILE *fd);
+void SerializeDifference(FolderDiffNode * diff, FILE *fd);
 
 uint32_t ComputeCRC32(const char * data, int len);
 void ComputeMD5(const char * data, int len);
 
-void SendMessage(int socket, const char * msg, int len);
+int SendMessage(int sockfd, char command[4], const char *msg);
 //Send message length first, then message body
-void SendPacket(int socket, const char * pkt,int len);
+void SendPacket(int socket, const char * pkt);
 //Send packet length first, then packet data, finally packet checksum
 void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
 void DeleteFile(int socket, const char * path);
 
+char *ReceiveMessage(int sockfd);
+
+char *ReceiveFile(int sockfd);
+
+// 0 for find success, -1 for find none
 int IsProject(const char *path);
 
 typedef struct ProgressBar{

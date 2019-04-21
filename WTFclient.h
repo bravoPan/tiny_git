@@ -1,4 +1,4 @@
-void process_checkout(int argc,char ** argv);
+int process_checkout(int argc,char ** argv);
 void process_update(int argc,char ** argv);
 void process_upgrade(int argc,char ** argv);
 void process_commit(int argc,char ** argv);
