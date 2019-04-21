@@ -42,6 +42,32 @@ void output_error(int errnum){
     }
     exit(0);
 }
+// void push(int argc, char **argv,FolderStructureNode* file_node){
+//   int i, msg_len = 8, str_size = 0;
+//   char *repo_name = argv[2];
+//   send_all(sockfd, &msg_len, sizeof(int), 0);
+//   char msg[8] = {'p', 'u', 's', 'h'};
+//   memcpy(msg + 4, &str_size, sizeof(int));
+//   send_all(sockfd, msg, msg_len, 0);
+//   if(HashMapFind(repoHashMap, repo_name) == NULL){
+//     printf("file does not exist, push failed\n");
+//     return;
+//   }
+//   if(mkdir(repo_name, 0777) == -1){
+//       printf("%s\n",strerror(errno));
+//   }
+//   int dir_fd = dirfd(opendir(repo_name));
+//   FolderStructureNode * init_dir;
+//   init_dir = CreateFolderStructNode(0,strdup(repo_name),NULL,NULL, init_dir);
+//   HashMapInsert(repoHashMap, init_dir -> name, init_dir);
+//   return;
+// }
+
+int process_push(int argc, char ** argv){
+
+}
+
+
 
 void *receiveFromServer(void * unused){
   char buffer[BUFFERSIZE];
@@ -195,6 +221,11 @@ int process_add(int argc, char **argv){
 void init_client_file_system(){
 
 }
+
+
+
+
+
 
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}
