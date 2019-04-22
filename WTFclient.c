@@ -46,6 +46,44 @@ void output_error(int errnum){
     }
     exit(0);
 }
+// void push(int argc, char **argv,FolderStructureNode* file_node){
+//   int i, msg_len = 8, str_size = 0;
+//   char *repo_name = argv[2];
+//   send_all(sockfd, &msg_len, sizeof(int), 0);
+//   char msg[8] = {'p', 'u', 's', 'h'};
+//   memcpy(msg + 4, &str_size, sizeof(int));
+//   send_all(sockfd, msg, msg_len, 0);
+//   if(HashMapFind(repoHashMap, repo_name) == NULL){
+//     printf("file does not exist, push failed\n");
+//     return;
+//   }
+//   if(mkdir(repo_name, 0777) == -1){
+//       printf("%s\n",strerror(errno));
+//   }
+//   int dir_fd = dirfd(opendir(repo_name));
+//   FolderStructureNode * init_dir;
+//   init_dir = CreateFolderStructNode(0,strdup(repo_name),NULL,NULL, init_dir);
+//   HashMapInsert(repoHashMap, init_dir -> name, init_dir);
+//   return;
+// }
+
+int process_push(int argc, char ** argv){
+  char command[4] = "push";
+  char* repo_name = argv[2];
+  if(SendMessage(sockfd, command, repo_name)==-1){
+    printf("error\n");
+  }
+  return 0;
+}
+void process_destroy(int argc, char ** argv){
+  char command[4] = "dest";
+  char* repo_name = argv[2];
+  if(SendMessage(sockfd, command, repo_name) ==-1){
+    printf("error\n");
+  }
+  return 0;
+}
+
 
 void *receiveFromServer(void * unused){
   char buffer[BUFFERSIZE];
@@ -276,7 +314,6 @@ int process_checkout(int argc, char **argv){
     close(manifest_pointer);
     free(mani_data);
     free(temp_repo_name);
-    // printf("The real content is %s\n", content);
     return 0;
 }
 
@@ -331,6 +368,7 @@ int main(int argc,char ** argv){
         output_error(0);
     }
     */
+<<<<<<< HEAD
     if(strcmp(argv[1], "checkout") == 0){
         process_checkout(argc, argv);
     }else if(strcmp(argv[1], "create") == 0){
@@ -340,6 +378,10 @@ int main(int argc,char ** argv){
     }
 
 
+=======
+    // process_checkout(argc, argv);
+    process_push(argc,argv);
+>>>>>>> 3458426efc6e8235df798f21b7b2fd1aa83acc7f
     // SendFile(sockfd,"./utility.h");
     // DeleteFile(sockfd, "./test_dir/a.txt");
     // process_checkout(argc, argv);

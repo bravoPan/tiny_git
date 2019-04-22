@@ -229,6 +229,25 @@ void DestroyHashMap(HashMap * hmap){
     }
     free(hmap);
 }
+void DeleteHashMapNode(HashMap * hmap, char* str){
+  int hmap_size = hmap->size;
+  if(hmap_size == 0){
+    printf("error: no file to destroy\n");
+    return;
+  }
+  HashMapNode *pre = NULL;
+  HashMapNode *current = hmap->map[0];
+  for(int i =0; i<size; i++){
+    char* tmp = hmap->map[i]->key;
+    if(strcmp(str,tmp) ==0){
+      pre->next = current->next;
+    }else{
+      pre = current;
+      current = current->next;
+    }
+  }
+  return;
+}
 
 void PrintHashMap(HashMap * hmap){
     int SIZE = hmap -> size, i;
