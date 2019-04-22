@@ -140,26 +140,15 @@ void * handle_customer(void * tls){
       }else if(strncmp(command, "push",4) == 0){
         char *repo_name = receive_data+8;
         if(exist_checking(repo_name) == -1){
-          printf("error: file "%s" not exist\n",repo_name);
-          return;
+          printf("error: file %s not exist\n",repo_name);
         }
       }else if(strncmp(command, "dist",4) == 0){
         char *repo_name = receive_data +8;
         if(exist_checking(repo_name) == -1){
-          printf("error: file "%s" not exist\n",repo_name);
-          return;
+          printf("error: file %s not exist\n",repo_name);
         }
-
-
-
-
-
-
-
-
-
-
-
+        DeleteHashMapNode(repoHashMap,repo_name);
+        printf("deleted file : %s\n", repo_name);
       }
 
     //   else if(strncmp(str, "send", 4) == 0){

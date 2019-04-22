@@ -80,7 +80,7 @@ void process_destroy(int argc, char ** argv){
   if(SendMessage(sockfd, command, repo_name) ==-1){
     printf("error\n");
   }
-  return 0;
+  return;
 }
 
 

@@ -236,7 +236,7 @@ void DeleteHashMapNode(HashMap * hmap, char* str){
   }
   HashMapNode *pre = NULL;
   HashMapNode *current = hmap->map[0];
-  for(int i =0; i<size; i++){
+  for(int i =0; i<hmap_size; i++){
     char* tmp = hmap->map[i]->key;
     if(strcmp(str,tmp) ==0){
       pre->next = current->next;
@@ -245,6 +245,7 @@ void DeleteHashMapNode(HashMap * hmap, char* str){
       current = current->next;
     }
   }
+  hmap->size--;
   return;
 }
 
