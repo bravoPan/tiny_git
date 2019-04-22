@@ -27,7 +27,7 @@ void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
     fprintf(fd, "%d\n",root -> nextFile -> index);
   }
   int i;
-  for(i = 0;i < 64;++i){
+  for(i = 0;i < 16;++i){
     fprintf(fd, "%02X ",(int)root -> hash[i]);
   }
   fprintf(fd, "\n%s\n",root -> name);
@@ -36,6 +36,10 @@ void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
 }
 
 void SerializeStructure(FolderStructureNode * tree, FILE *fd){
+    if(tree == NULL){
+        fprintf(fd,"0\n");
+        return;
+    }
   int nodeCount = ComputeNewIndex(tree,0);
   fprintf(fd, "%d\n",nodeCount);
   RecursivePrintFdStruct(tree, fd);
@@ -84,31 +88,3 @@ FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *pat
     }
     return NULL;
 }
-
-
-// FolderStructureNode *SearchHeadNode(const char *head_name, FolderStructureNode *root){
-//
-// }
-
-// FolderStructureNode nodearr[10];
-
-/*
-int main(){
-  int i;
-  for(i = 0;i < 10;++i){
-    nodearr[i].index = i;
-    nodearr[i].type = 1;
-    sprintf(nodearr[i].name,"%d",i);
-    if(i < 9){
-      nodearr[i].nextFile = nodearr + i + 1;
-    } else {
-      nodearr[i].nextFile = NULL;
-    }
-    nodearr[i].folderHead = NULL;
-  }
-  SerializeStructure(nodearr);
-  FolderStructureNode * input = ConstructStructureFromFile("test.manifest");
-  SerializeStructure(input);
-  return 0;
-}
-*/

@@ -85,18 +85,29 @@ void init_server_file_system(){
     }
 }
 
-int server_checkout(int cli_socket, const char *repo){
+int server_checkout(int cli_socket, char *repo){
     if(HashMapFind(repoHashMap, repo) == NULL){
         printf("The project %s is not managed, cannot be checkedout\n", repo);
         return -1;
     }else{
-        chdir(repo);
-        // printf("The repo name is %s\n", repo);
+        int repo_dir_fd = open(repo, O_RDONLY);
+        int repo_path_len = strlen(repo);
+        char *mani_path = malloc(repo_path_len + 1 + 9);
+        sprintf(mani_path, "%s/.Manifest", repo);
         //send .Manifest
-        SendFile(cli_socket, ".Manifest");
-
+        SendFile(cli_socket, mani_path);
+        FolderStructureNode *root = ConstructStructureFromFile(mani_path);
+        int file_size = GetFileNumFromMani(root);
+        //send file size
+        printf("Fiel size is %d\n", file_size);
+        char command[4] = {'n','u','l','l'};
+        SendMessage(cli_socket, command, (char *)&file_size);
+        //send all other files
+        SendFileFromMani(cli_socket, root, repo_dir_fd, repo);
+        close(repo_dir_fd);
+        free(root);
         // FolderStructureNode *root =
-        chdir("../");
+        // chdir("../");
     }
     return 0;
 }
@@ -116,15 +127,6 @@ void * handle_customer(void * tls){
       command[4] = 0;
       memcpy(&file_size, receive_data + 4, sizeof(int));
 
-    //   printf("The command is %s\n", command);
-    //   printf("The file size is %d\n", file_size);
-    //   char *real_content = receive_data + 8;
-    //   printf("The real content is %s\n", real_content);
-    //   int msg_len = 0;
-    //   int status = read_all(tls_data -> sockfd,&msg_len,sizeof(msg_len),0);
-    //   if(status <= 0){break;}
-    //   status = read_all(tls_data -> sockfd,str,msg_len,0);
-    //   if(status <= 0){break;}
       if(strncmp(command, "ckot", 4) == 0){
         // char *repo_name = malloc(file_size + 1);
         // memcpy(repo_name, receive_data + 8, 0);
@@ -133,36 +135,6 @@ void * handle_customer(void * tls){
         server_checkout(tls_data -> sockfd, receive_data + 8);
         free(receive_data);
       }
-
-    //   else if(strncmp(str, "send", 4) == 0){
-    //       int filesize = *((int *)(str + 4));
-    //       char * filedata = malloc(filesize + 1);
-    //       read_all(tls_data -> sockfd,filedata,filesize,0);
-    //       filedata[filesize] = 0;
-    //       printf("%d\n",filesize);
-    //       printf("%s\n",filedata);
-    //       int md5_arr_size = (int)(sizeof(uint32_t)*4);
-    //       uint32_t* md5_arr = malloc(sizeof(uint32_t));
-    //       read_all(tls_data ->sockfd, md5_arr,md5_arr_size,0);
-    //       printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
-    //   }else if(strncmp(str, "delt", 4) == 0){
-    //       int path_size = *((int *) (str + 4));
-    //       char * path_str = malloc(path_size + 1);
-    //       read_all(tls_data -> sockfd, path_str, path_size, 0);
-    //       printf("The deleted file name is %s.\n", path_str);
-    //   }else if(strncmp(str, "cret", 4) == 0){
-    //       int path_size = *((int *) (str + 4));
-    //       char *path_str = malloc(path_size + 1);
-    //       read_all(tls_data -> sockfd, path_str, path_size, 0);
-    //       path_str[path_size] = 0;
-    //       create_repo(path_str);
-    //   }else if(strncmp(str, "ckot", 4) == 0){
-    //       int repo_size = *((int *)(str + 4));
-    //       char *repo_name = malloc(repo_size + 1);
-    //       read_all(tls_data -> sockfd, repo_name, repo_size, 0);
-    //       repo_name[repo_size] = 0;
-    //       printf("It's in the chekcing out \n");
-    //   }
   }
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);
