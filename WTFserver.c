@@ -106,17 +106,17 @@ int server_checkout(int cli_socket, char *repo){
         SendFileFromMani(cli_socket, root, repo_dir_fd, repo);
         close(repo_dir_fd);
         free(root);
-        // FolderStructureNode *root =
-        // chdir("../");
     }
     return 0;
 }
+
 int exist_checking(const char* file_name){
   if(HashMapFind(repoHashMap, file_name) == NULL){
     return -1;
   }
   return 0;
 }
+
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
@@ -133,37 +133,14 @@ void * handle_customer(void * tls){
       memcpy(&file_size, receive_data + 4, sizeof(int));
 
       if(strncmp(command, "ckot", 4) == 0){
-        // char *repo_name = malloc(file_size + 1);
-        // memcpy(repo_name, receive_data + 8, 0);
-        // repo_name[file_size] = 0;
-        // printf("%s\n", );
         server_checkout(tls_data -> sockfd, receive_data + 8);
         free(receive_data);
       }else if(strncmp(command, "push",4) == 0){
-        char *repo_name = receive_data+8;
-        if(exist_checking(repo_name) == -1){
-          printf("error: file "%s" not exist\n",repo_name);
-          return;
-        }
+          return NULL;
       }else if(strncmp(command, "dist",4) == 0){
-        char *repo_name = receive_data +8;
-        if(exist_checking(repo_name) == -1){
-          printf("error: file "%s" not exist\n",repo_name);
-          return;
+          return NULL;
         }
-
-
-
-
-
-
-
-
-
-
-
-      }
-  }
+    }
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);
   close(tls_data -> sockfd);

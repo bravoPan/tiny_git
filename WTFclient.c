@@ -46,42 +46,23 @@ void output_error(int errnum){
     }
     exit(0);
 }
-// void push(int argc, char **argv,FolderStructureNode* file_node){
-//   int i, msg_len = 8, str_size = 0;
-//   char *repo_name = argv[2];
-//   send_all(sockfd, &msg_len, sizeof(int), 0);
-//   char msg[8] = {'p', 'u', 's', 'h'};
-//   memcpy(msg + 4, &str_size, sizeof(int));
-//   send_all(sockfd, msg, msg_len, 0);
-//   if(HashMapFind(repoHashMap, repo_name) == NULL){
-//     printf("file does not exist, push failed\n");
-//     return;
-//   }
-//   if(mkdir(repo_name, 0777) == -1){
-//       printf("%s\n",strerror(errno));
-//   }
-//   int dir_fd = dirfd(opendir(repo_name));
-//   FolderStructureNode * init_dir;
-//   init_dir = CreateFolderStructNode(0,strdup(repo_name),NULL,NULL, init_dir);
-//   HashMapInsert(repoHashMap, init_dir -> name, init_dir);
-//   return;
-// }
 
 int process_push(int argc, char ** argv){
-  char command[4] = "push";
-  char* repo_name = argv[2];
-  if(SendMessage(sockfd, command, repo_name)==-1){
-    printf("error\n");
-  }
-  return 0;
+    char command[4] = "push";
+    char* repo_name = argv[2];
+    if(SendMessage(sockfd, command, repo_name)==-1){
+        printf("error\n");
+    }
+    return 0;
 }
-void process_destroy(int argc, char ** argv){
-  char command[4] = "dest";
-  char* repo_name = argv[2];
-  if(SendMessage(sockfd, command, repo_name) ==-1){
-    printf("error\n");
-  }
-  return 0;
+
+int process_destroy(int argc, char ** argv){
+    char command[4] = "dest";
+    char* repo_name = argv[2];
+    if(SendMessage(sockfd, command, repo_name) ==-1){
+        printf("error\n");
+    }
+    return 0;
 }
 
 
@@ -305,8 +286,8 @@ int process_checkout(int argc, char **argv){
         char *content_data = ReceiveFile(sockfd);
         printf("The file path is %s\n", path_data + 8);
         printf("The real content is %s\n", content_data + 256 + 16 + 4);
-        int conten_size = *((int *)(content_data + 256 + 16));
-        write(file_fd, content + 256 + 16 + 4, conten_size);
+        int content_size = *((int *)(content_data + 256 + 16));
+        write(file_fd, content_data + 256 + 16 + 4, content_size);
         close(file_fd);
     }
     printf("Project %s checked out successfully\n", repo_name);
@@ -359,47 +340,16 @@ int main(int argc,char ** argv){
     char buffer[BUFFERSIZE];
     int i, j;
 
-    /*
-    if(strcmp(argv[1],"checkout") == 0){
-        process_checkout(argc,argv);
-    } else if(strcmp(argv[1],"update") == 0){
-        process_update(argc,argv);
-    } else {
-        output_error(0);
-    }
-    */
-<<<<<<< HEAD
     if(strcmp(argv[1], "checkout") == 0){
         process_checkout(argc, argv);
     }else if(strcmp(argv[1], "create") == 0){
         process_create(argc, argv);
     }else if(strcmp(argv[1], "add") == 0){
         process_add(argc, argv);
+    }else if(strcmp(argv[1], "push") == 0){
+        process_push(argc, argv);
     }
 
-
-=======
-    // process_checkout(argc, argv);
-    process_push(argc,argv);
->>>>>>> 3458426efc6e8235df798f21b7b2fd1aa83acc7f
-    // SendFile(sockfd,"./utility.h");
-    // DeleteFile(sockfd, "./test_dir/a.txt");
-    // process_checkout(argc, argv);
-    // process_add(argc, argv);
-    /*
-    while (!stop_receive) {
-        memset(buffer, 0, BUFFERSIZE);
-        printf("Enter your message:\n");
-        if(fgets(buffer, BUFFERSIZE, stdin) == NULL){
-            stop_receive = 1;break;
-        }
-        int msg_len = strlen(buffer);
-        send_all(sockfd, &msg_len,sizeof(msg_len),0);
-        send_all(sockfd, buffer, strlen(buffer), 0);
-        if(stop_receive)
-            break;
-    }
-    */
     pthread_join(receive_thread,NULL);
 
     printf("finish\n");
