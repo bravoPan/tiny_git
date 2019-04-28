@@ -55,15 +55,6 @@ int process_push(int argc, char ** argv){
     }
     return 0;
 }
-<<<<<<< HEAD
-void process_destroy(int argc, char ** argv){
-  char command[4] = "dest";
-  char* repo_name = argv[2];
-  if(SendMessage(sockfd, command, repo_name) ==-1){
-    printf("error\n");
-  }
-  return;
-=======
 
 int process_destroy(int argc, char ** argv){
     char command[4] = "dest";
@@ -72,7 +63,6 @@ int process_destroy(int argc, char ** argv){
         printf("error\n");
     }
     return 0;
->>>>>>> 9f92585a99ff67846767ba86c2cdd095a7316ca8
 }
 
 

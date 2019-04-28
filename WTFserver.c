@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,7 @@
 #include <poll.h>
 #include <errno.h>
 #include "utility.h"
+#include "ftw.h"
 
 typedef struct _thread_data{
   int sockfd;
@@ -116,6 +118,40 @@ int exist_checking(const char* file_name){
   }
   return 0;
 }
+void dest_function(char* repo_name){
+  if(exist_checking(repo_name) == -1){
+    printf("error: file %s not exist\n",repo_name);
+    return;
+  }
+  DeleteHashMapNode(repoHashMap,repo_name);
+  remove_dir(repo_name);
+  printf("deleted file : %s\n", repo_name);
+}
+void push_function(char* repo_name){
+  if(exist_checking(repo_name) == -1){
+    printf("error: file %s not exist\n",repo_name);
+    return;
+  }
+
+}
+
+
+int remove_dir_helper(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+
+    if (rv)
+        perror(fpath);
+
+    return rv;
+}
+
+int remove_dir(char *path)
+{
+    return nftw(path, remove_dir_helper, 64, FTW_DEPTH | FTW_PHYS);
+}
+
+
 
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
@@ -136,18 +172,9 @@ void * handle_customer(void * tls){
         server_checkout(tls_data -> sockfd, receive_data + 8);
         free(receive_data);
       }else if(strncmp(command, "push",4) == 0){
-<<<<<<< HEAD
-        char *repo_name = receive_data+8;
-        if(exist_checking(repo_name) == -1){
-          printf("error: file %s not exist\n",repo_name);
-        }
-      }else if(strncmp(command, "dist",4) == 0){
-        char *repo_name = receive_data +8;
-        if(exist_checking(repo_name) == -1){
-          printf("error: file %s not exist\n",repo_name);
-        }
-        DeleteHashMapNode(repoHashMap,repo_name);
-        printf("deleted file : %s\n", repo_name);
+        push_function(receive_data+8);
+      }else if(strncmp(command, "dest",4) == 0){
+        dest_function(receive_data+8);
       }
 
     //   else if(strncmp(str, "send", 4) == 0){
@@ -180,13 +207,6 @@ void * handle_customer(void * tls){
     //       printf("It's in the chekcing out \n");
     //   }
   }
-=======
-          return NULL;
-      }else if(strncmp(command, "dist",4) == 0){
-          return NULL;
-        }
-    }
->>>>>>> 9f92585a99ff67846767ba86c2cdd095a7316ca8
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);
   close(tls_data -> sockfd);
