@@ -83,6 +83,7 @@ void ApplyDiff(FolderStructureNode * oldTree, FolderDiffNode * diff);
 void RevertDiff(FolderStructureNode * newTree, FolderDiffNode * diff);
 void SerializeStructure(FolderStructureNode * tree, FILE *fd);
 void SerializeDifference(FolderDiffNode * diff, FILE *fd);
+int GetFileNumFromMani(FolderStructureNode *root);
 
 uint32_t ComputeCRC32(const char * data, int len);
 void ComputeMD5(const char * data, int len);
@@ -93,7 +94,12 @@ void SendPacket(int socket, const char * pkt);
 //Send packet length first, then packet data, finally packet checksum
 void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
+
+void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
+
 void DeleteFile(int socket, const char * path);
+
+void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
 
 char *ReceiveMessage(int sockfd);
 
@@ -111,6 +117,5 @@ typedef struct ProgressBar{
 void InitializeGUI(void);
 void DrawProgressBar(ProgressBar * bar);
 
-
 void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);
-MD5FileInfo *GetMD5FileInfo(const char *file_name);
+MD5FileInfo *GetMD5FileInfo(int file_fd);

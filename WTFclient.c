@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <dirent.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -45,35 +46,16 @@ void output_error(int errnum){
     }
     exit(0);
 }
-// void push(int argc, char **argv,FolderStructureNode* file_node){
-//   int i, msg_len = 8, str_size = 0;
-//   char *repo_name = argv[2];
-//   send_all(sockfd, &msg_len, sizeof(int), 0);
-//   char msg[8] = {'p', 'u', 's', 'h'};
-//   memcpy(msg + 4, &str_size, sizeof(int));
-//   send_all(sockfd, msg, msg_len, 0);
-//   if(HashMapFind(repoHashMap, repo_name) == NULL){
-//     printf("file does not exist, push failed\n");
-//     return;
-//   }
-//   if(mkdir(repo_name, 0777) == -1){
-//       printf("%s\n",strerror(errno));
-//   }
-//   int dir_fd = dirfd(opendir(repo_name));
-//   FolderStructureNode * init_dir;
-//   init_dir = CreateFolderStructNode(0,strdup(repo_name),NULL,NULL, init_dir);
-//   HashMapInsert(repoHashMap, init_dir -> name, init_dir);
-//   return;
-// }
 
 int process_push(int argc, char ** argv){
-  char command[4] = "push";
-  char* repo_name = argv[2];
-  if(SendMessage(sockfd, command, repo_name)==-1){
-    printf("error\n");
-  }
-  return 0;
+    char command[4] = "push";
+    char* repo_name = argv[2];
+    if(SendMessage(sockfd, command, repo_name)==-1){
+        printf("error\n");
+    }
+    return 0;
 }
+<<<<<<< HEAD
 void process_destroy(int argc, char ** argv){
   char command[4] = "dest";
   char* repo_name = argv[2];
@@ -81,6 +63,16 @@ void process_destroy(int argc, char ** argv){
     printf("error\n");
   }
   return;
+=======
+
+int process_destroy(int argc, char ** argv){
+    char command[4] = "dest";
+    char* repo_name = argv[2];
+    if(SendMessage(sockfd, command, repo_name) ==-1){
+        printf("error\n");
+    }
+    return 0;
+>>>>>>> 9f92585a99ff67846767ba86c2cdd095a7316ca8
 }
 
 
@@ -185,100 +177,134 @@ void process_create(int argc, char **argv){
 int process_add(int argc, char **argv){
     char *project_name = argv[2], *file_name = argv[3];
 
-    project_name = "test_repo";
-    file_name = "t/second.txt";
-
     int file_fd;
     if(IsProject(project_name) == -1){
-        printf("Project doest not exist%s\n", project_name);
+        printf("Project doest not exist %s\n", project_name);
         return -1;
     }
+
     chdir(project_name);
     FolderStructureNode *root = ConstructStructureFromFile(".Manifest");
-    FolderStructureNode *parent = root;
-    FILE * mani_fd = fopen(".Manifest", "w");
+    chdir("..");
 
-    char *path = malloc(sizeof(256)), token;
+    int dirfd = open(project_name,O_RDONLY),tmpfd;
+    FolderStructureNode *parent = NULL, *curr = root;
+
+    char *path = malloc(256), token;
     int index = 0, i, len = strlen(file_name);
     for(i = 0; i < len; i++){
         if(file_name[i] == '/'){
             path[index] = 0;
             //create a folder node
-            FolderStructureNode *temp = SearchStructNode(root, path);
+            FolderStructureNode *temp = SearchStructNode(curr, path);
             if(temp == NULL){
-                FolderStructureNode *new_path = CreateFolderStructNode(2, path, 0, NULL, NULL);
+                FolderStructureNode *new_path = CreateFolderStructNode(2, path, 0, curr, NULL);
                 //if root isn't existed
-                if(root == NULL){
+                if(parent == NULL){
                     root = new_path;
-                    parent = root;
-                }else {
-                    new_path -> nextFile = parent -> folderHead;
-                    parent -> folderHead = new_path;
+                } else {
+                    parent->folderHead = new_path;
                 }
                 temp = new_path;
             }
-            parent = temp;
-            if(chdir(path) == -1){
+            parent = temp;curr = temp->folderHead;
+            tmpfd = openat(dirfd,path,O_RDONLY);
+            if(tmpfd == -1){
                 printf("File %s does not exist\n", file_name);
                 return -1;
             }
+            close(dirfd);dirfd = tmpfd;
             index = 0;
         }else
             path[index++] = file_name[i];
     }
 
     path[index] = 0;
-    printf("The file name is %s\n", path);
-    if((file_fd = open(path, O_RDONLY)) == -1){
-        printf("File %s does not exist.\n", path);
+    FolderStructureNode * temp = SearchStructNode(curr,path);
+    if(temp != NULL){
+        printf("File %s is already added\n", file_name);
         return -1;
     }
 
-    MD5FileInfo *fileinfo = GetMD5FileInfo(path);
-    FolderStructureNode *new_file = CreateFolderStructNode(1, path, (char *)fileinfo->hash, NULL, NULL);
+    if((file_fd = openat(dirfd, path, O_RDONLY)) == -1){
+        printf("File %s does not exist.\n", path);
+        return -1;
+    }
+    close(file_fd);
 
-    if(root == NULL)
+    MD5FileInfo *fileinfo = GetMD5FileInfo(file_fd);
+    FolderStructureNode *new_file = CreateFolderStructNode(1, path, (char *)fileinfo->hash, curr, NULL);
+    if(parent == NULL){
         root = new_file;
-    else{
-        new_file -> nextFile = parent -> folderHead;
-        parent -> folderHead = new_file;
+    } else {
+        parent->folderHead = new_file;
     }
 
+    close(dirfd);
+    dirfd = open(project_name,O_RDONLY);
+    printf("File %s added\n", path);
+    int mani_rfd = openat(dirfd,".Manifest",O_WRONLY);
+    FILE * mani_fd = fdopen(mani_rfd,"w");
     SerializeStructure(root, mani_fd);
+    fclose(mani_fd);
+    close(mani_rfd);
+    close(dirfd);
     return 0;
 }
 
- int process_checkout(int argc, char **argv){
-    // char *repo_name = argv[2];
-    // if(IsProject(repo_name) == 0){
-    //     printf("The project %s has existed on the client, it cannot be checked out\n", repo_name);
-    //     return -1;
-    // }
-    // char command[4] = {'c', 'k', 'o', 't'};
-    // SendMessage(sockfd, command, repo_name);
-    //
-    // //Receive .Manifest from server
-    // char *mani_data = ReceiveFile(sockfd);
-    // char name[256];
-    // uint32_t hash[4];
-    // int file_size;
-    // memcpy(name, mani_data, 256);
-    // memcpy(&hash, mani_data + 256, 128);
-    // memcpy(&file_size, mani_data + 256 + 128, 4);
-    // char content[file_size + 1];
-    // memcpy(content, mani_data + 256 + 128 + 4, file_size + 1);
-    //
-    // printf("The file name is %s\n", name);
-    // printf("The hash is %" PRIx32 "%" PRIx32 "%" PRIx32 "%" PRIx32"\n", hash[0], hash[1], hash[2], hash[3]);
-    // printf("The file size is %d\n", file_size);
-    // printf("The real content is %s\n", mani_data);
+int process_checkout(int argc, char **argv){
+    char *repo_name = argv[2];
+    if(IsProject(repo_name) == 0){
+        printf("The project %s has existed on the client, it cannot be checked out\n", repo_name);
+        return -1;
+    }
+    char command[4] = {'c', 'k', 'o', 't'};
+    SendMessage(sockfd, command, repo_name);
 
-    // int i, msg_len = 8, repo_len = strlen(repo_name);
-    // send_all(sockfd, &msg_len, sizeof(int), 0);
-    // char msg[8] = {'c', 'k', 'o', 't'};
-    // memcpy(msg + 4, &repo_len, sizeof(int));
-    // send_all(sockfd, msg, msg_len, 0);
-    // send_all(sockfd, repo_name, repo_len, 0);
+    //Receive .Manifest from server
+    char *mani_data = ReceiveFile(sockfd);
+    char name[256];
+    uint8_t hash[16];
+    int file_size;
+    memcpy(name, mani_data, 256);
+    memcpy(hash, mani_data + 256, 16);
+    memcpy(&file_size, mani_data + 256 + 16, 4);
+    char * content = malloc(file_size + 1);
+    memcpy(content, mani_data + 256 + 16 + 4, file_size);
+    content[file_size] = 0;
+    //create a folder
+    if(mkdir(repo_name, 0777) == -1){
+      printf("%s\n",strerror(errno));
+    }
+    int dir_pointer = open(repo_name,O_RDONLY);
+    int manifest_pointer = openat(dir_pointer, ".Manifest", O_WRONLY | O_CREAT, 0666);
+
+    write(manifest_pointer, content, file_size);
+
+
+    char *temp_repo_name = strdup(repo_name);
+    FolderStructureNode *root = ConstructStructureFromFile(strcat(temp_repo_name, "/.Manifest"));
+
+    CreateEmptyFolderStructFromMani(root, dir_pointer, repo_name);
+
+    char *file_num_data = ReceiveMessage(sockfd);
+    int file_num = *((int *)(file_num_data + 8)), i;
+    // printf("The file num is %d\n", file_num);
+    for(i = 0; i < file_num; i++){
+        char *path_data = ReceiveMessage(sockfd);
+        int file_fd = open(path_data + 8, O_WRONLY);
+        char *content_data = ReceiveFile(sockfd);
+        printf("The file path is %s\n", path_data + 8);
+        printf("The real content is %s\n", content_data + 256 + 16 + 4);
+        int content_size = *((int *)(content_data + 256 + 16));
+        write(file_fd, content_data + 256 + 16 + 4, content_size);
+        close(file_fd);
+    }
+    printf("Project %s checked out successfully\n", repo_name);
+    close(dir_pointer);
+    close(manifest_pointer);
+    free(mani_data);
+    free(temp_repo_name);
     return 0;
 }
 
@@ -288,11 +314,6 @@ int process_add(int argc, char **argv){
 void init_client_file_system(){
 
 }
-
-
-
-
-
 
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}
@@ -329,35 +350,16 @@ int main(int argc,char ** argv){
     char buffer[BUFFERSIZE];
     int i, j;
 
-    /*
-    if(strcmp(argv[1],"checkout") == 0){
-        process_checkout(argc,argv);
-    } else if(strcmp(argv[1],"update") == 0){
-        process_update(argc,argv);
-    } else {
-        output_error(0);
+    if(strcmp(argv[1], "checkout") == 0){
+        process_checkout(argc, argv);
+    }else if(strcmp(argv[1], "create") == 0){
+        process_create(argc, argv);
+    }else if(strcmp(argv[1], "add") == 0){
+        process_add(argc, argv);
+    }else if(strcmp(argv[1], "push") == 0){
+        process_push(argc, argv);
     }
-    */
-    // process_checkout(argc, argv);
-    process_push(argc,argv);
-    // SendFile(sockfd,"./utility.h");
-    // DeleteFile(sockfd, "./test_dir/a.txt");
-    // process_checkout(argc, argv);
-    // process_add(argc, argv);
-    /*
-    while (!stop_receive) {
-        memset(buffer, 0, BUFFERSIZE);
-        printf("Enter your message:\n");
-        if(fgets(buffer, BUFFERSIZE, stdin) == NULL){
-            stop_receive = 1;break;
-        }
-        int msg_len = strlen(buffer);
-        send_all(sockfd, &msg_len,sizeof(msg_len),0);
-        send_all(sockfd, buffer, strlen(buffer), 0);
-        if(stop_receive)
-            break;
-    }
-    */
+
     pthread_join(receive_thread,NULL);
 
     printf("finish\n");

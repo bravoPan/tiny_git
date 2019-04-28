@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <ncurses.h>
 #include <sys/socket.h>
 #include <sys/dir.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include "utility.h"
 
@@ -101,22 +101,23 @@ char *ReceiveMessage(int sockfd){
 }
 
 /*SendFile protocol
-256(name) 128(hash) 4(file_size) real content
+256(name) 16(hash) 4(file_size) real content
 */
 void SendFile(int sockfd, const char * path){
-    MD5FileInfo *md5_info = GetMD5FileInfo(path);
+    int fd = open(path,O_RDONLY);
+    MD5FileInfo *md5_info = GetMD5FileInfo(fd);
     int file_size = md5_info -> file_size;
-    char *file_name = md5_info -> file_name;
     uint8_t *hash = md5_info -> hash;
     // printf("The file size is %d\n", file_size);
     // printf("The file name is %s\n", file_name);
     // printf("The has\n", );
+    close(fd);
 
-    int fd = open(path, O_RDONLY);
+    fd = open(path, O_RDONLY);
     //send file name
     char command[4] = {'n', 'u', 'l', 'l'};
-    SendMessage(sockfd, command, file_name);
-    send_all(sockfd, hash, 128, 0);
+    SendMessage(sockfd, command, path);
+    send_all(sockfd, hash, 16, 0);
 
     //send text
     char *text = malloc(file_size);
@@ -127,21 +128,21 @@ void SendFile(int sockfd, const char * path){
 }
 
 char *ReceiveFile(int sockfd){
-    char *data = malloc(256 + 128 + 4);
+    char *data = malloc(256 + 16 + 4);
     char *name_data = ReceiveMessage(sockfd);
     int name_size = *((int *)(name_data + 4));
     memcpy(data, name_data + 8, name_size);
     data[name_size] = 0;
     //read hash
-    read_all(sockfd, data + 256, 128, 0);
+    read_all(sockfd, data + 256, 16, 0);
     //read content size
     int content_size;
     read_all(sockfd, &content_size, 4, 0);
     //copy content
-    memcpy(data + 256 + 128, &content_size, 4);
-    data = realloc(data, 256 + 128 + 4 + content_size);
+    memcpy(data + 256 + 16, &content_size, 4);
+    data = realloc(data, 256 + 16 + 4 + content_size);
     //read content
-    read_all(sockfd, data + 256 + 128 + 4, content_size, 0);
+    read_all(sockfd, data + 256 + 16 + 4, content_size, 0);
     free(name_data);
     return data;
 }
@@ -228,25 +229,26 @@ void DestroyHashMap(HashMap * hmap){
     }
     free(hmap);
 }
+
 void DeleteHashMapNode(HashMap * hmap, char* str){
-  int hmap_size = hmap->size;
-  if(hmap_size == 0){
-    printf("error: no file to destroy\n");
-    return;
-  }
-  HashMapNode *pre = NULL;
-  HashMapNode *current = hmap->map[0];
-  for(int i =0; i<hmap_size; i++){
-    char* tmp = hmap->map[i]->key;
-    if(strcmp(str,tmp) ==0){
-      pre->next = current->next;
-    }else{
-      pre = current;
-      current = current->next;
+    int hmap_size = hmap->size;
+    if(hmap_size == 0){
+        printf("error: no file to destroy\n");
+        return;
     }
-  }
-  hmap->size--;
-  return;
+    HashMapNode *pre = NULL;
+    HashMapNode *current = hmap->map[0];
+    for(int i =0; i<hmap_size; i++){
+    const char* tmp = hmap->map[i]->key;
+        if(strcmp(str,tmp) ==0){
+            pre->next = current->next;
+            break;
+        }else{
+            pre = current;
+            current = current->next;
+        }
+    }
+    return;
 }
 
 void PrintHashMap(HashMap * hmap){
@@ -261,6 +263,78 @@ void PrintHashMap(HashMap * hmap){
         if(cur_map[i] != NULL){
             printf("--------\n");
         }
+    }
+}
+
+int create_file(const char *name, int parent_folder_fd, char type){
+    int fd;
+    switch (type) {
+        case 1:
+            fd = openat(parent_folder_fd, name, O_WRONLY | O_CREAT, 0666);
+            break;
+        case 2:
+            mkdir(name, 0777);
+            fd = open(name, O_RDONLY);
+            break;
+    }
+    return fd;
+}
+
+void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name){
+    while (root != NULL) {
+        int cur_len = strlen(parent_folder_name) + 1 + strlen(root -> name), new_folder_fd;
+        char *new_path = malloc(cur_len);
+        sprintf(new_path, "%s/%s", parent_folder_name, root -> name);
+
+        switch (root -> type) {
+            case 1:
+                create_file(root -> name, parent_folder_fd, 1);
+                break;
+            case 2:
+                new_folder_fd = create_file(new_path, parent_folder_fd, 2);
+                if(root -> folderHead != NULL)
+                    CreateEmptyFolderStructFromMani(root -> folderHead, new_folder_fd, new_path);
+        }
+        free(new_path);
+        root = root -> nextFile;
+    }
+}
+
+int GetFileNumFromMani(FolderStructureNode *root){
+    if(root == NULL)
+        return 0;
+    int cur_num = 0;
+    while (root != NULL) {
+        if(root -> folderHead == NULL){
+            cur_num++;
+        }
+        else
+            cur_num = cur_num + GetFileNumFromMani(root -> folderHead);
+        root = root -> nextFile;
+    }
+    return cur_num;
+}
+
+void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name){
+
+    while (root != NULL) {
+        int new_path_len = strlen(parent_folder_name) + 1 + strlen(root -> name);
+        char *new_path = malloc(new_path_len);
+        sprintf(new_path, "%s/%s", parent_folder_name, root -> name);
+
+        if(root -> type == 1){
+            //send path and the file
+            char command[4] = {'n', 'u', 'l', 'l'};
+            SendMessage(sockfd, command, new_path);
+            printf("The path is %s\n", new_path);
+            SendFile(sockfd, new_path);
+        }
+        else if(root -> type == 2){
+            parent_folder_fd = open(new_path, O_RDONLY);
+            SendFileFromMani(sockfd, root -> folderHead, parent_folder_fd, new_path);
+        }
+        root = root -> nextFile;
+        free(new_path);
     }
 }
 
@@ -320,19 +394,32 @@ int IsProject(const char *project_name){
     return -1;
 }
 
-MD5FileInfo *GetMD5FileInfo(const char *file_name){
-    int file_fd = open(file_name, O_RDONLY);
+MD5FileInfo *GetMD5FileInfo(int file_fd){
     MD5FileInfo *fileinfo = malloc(sizeof(MD5FileInfo));
-    memcpy(fileinfo->file_name, file_name, strlen(file_name));
+    //memcpy(fileinfo->file_name, file_name, strlen(file_name));
     uint32_t *file_md5 = calloc(sizeof(uint32_t), 4);
-    struct stat fileStat;
-    stat(file_name, &fileStat);
-    int file_size = (int)fileStat.st_size;
-    fileinfo->file_size = fileStat.st_size;
-    uint8_t *text = malloc(file_size);
-    read(file_fd, text, file_size);
-    GetMD5(text, file_size, file_md5);
+    int file_size = 0,buff_size = 4096;
+    char * text = calloc(buff_size,1);
+    int t;
+    do{
+        t = read(file_fd,text,4096);
+        if(t <= 0){break;}
+        file_size += t;
+        if(file_size == buff_size){
+            buff_size *= 2;
+            text = realloc(text,buff_size);
+        }
+    } while(true);
+    fileinfo->file_size = file_size;
+    // struct stat fileStat;
+    // stat(file_name, &fileStat);
+    // int file_size = (int)fileStat.st_size;
+    // fileinfo->file_size = fileStat.st_size;
+    // uint8_t *text = malloc(file_size);
+    // read(file_fd, text, file_size);
+    GetMD5((uint8_t *)text, file_size, file_md5);
     free(text);
     memcpy(fileinfo->hash, file_md5, 16);
+    free(file_md5);
     return fileinfo;
 }

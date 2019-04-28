@@ -85,27 +85,38 @@ void init_server_file_system(){
     }
 }
 
-int server_checkout(int cli_socket, const char *repo){
+int server_checkout(int cli_socket, char *repo){
     if(HashMapFind(repoHashMap, repo) == NULL){
         printf("The project %s is not managed, cannot be checkedout\n", repo);
         return -1;
     }else{
-        chdir(repo);
-        // printf("The repo name is %s\n", repo);
+        int repo_dir_fd = open(repo, O_RDONLY);
+        int repo_path_len = strlen(repo);
+        char *mani_path = malloc(repo_path_len + 1 + 9);
+        sprintf(mani_path, "%s/.Manifest", repo);
         //send .Manifest
-        SendFile(cli_socket, ".Manifest");
-
-        // FolderStructureNode *root =
-        chdir("../");
+        SendFile(cli_socket, mani_path);
+        FolderStructureNode *root = ConstructStructureFromFile(mani_path);
+        int file_size = GetFileNumFromMani(root);
+        //send file size
+        printf("Fiel size is %d\n", file_size);
+        char command[4] = {'n','u','l','l'};
+        SendMessage(cli_socket, command, (char *)&file_size);
+        //send all other files
+        SendFileFromMani(cli_socket, root, repo_dir_fd, repo);
+        close(repo_dir_fd);
+        free(root);
     }
     return 0;
 }
+
 int exist_checking(const char* file_name){
   if(HashMapFind(repoHashMap, file_name) == NULL){
     return -1;
   }
   return 0;
 }
+
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
@@ -121,23 +132,11 @@ void * handle_customer(void * tls){
       command[4] = 0;
       memcpy(&file_size, receive_data + 4, sizeof(int));
 
-    //   printf("The command is %s\n", command);
-    //   printf("The file size is %d\n", file_size);
-    //   char *real_content = receive_data + 8;
-    //   printf("The real content is %s\n", real_content);
-    //   int msg_len = 0;
-    //   int status = read_all(tls_data -> sockfd,&msg_len,sizeof(msg_len),0);
-    //   if(status <= 0){break;}
-    //   status = read_all(tls_data -> sockfd,str,msg_len,0);
-    //   if(status <= 0){break;}
       if(strncmp(command, "ckot", 4) == 0){
-        // char *repo_name = malloc(file_size + 1);
-        // memcpy(repo_name, receive_data + 8, 0);
-        // repo_name[file_size] = 0;
-        // printf("%s\n", );
         server_checkout(tls_data -> sockfd, receive_data + 8);
         free(receive_data);
       }else if(strncmp(command, "push",4) == 0){
+<<<<<<< HEAD
         char *repo_name = receive_data+8;
         if(exist_checking(repo_name) == -1){
           printf("error: file %s not exist\n",repo_name);
@@ -181,6 +180,13 @@ void * handle_customer(void * tls){
     //       printf("It's in the chekcing out \n");
     //   }
   }
+=======
+          return NULL;
+      }else if(strncmp(command, "dist",4) == 0){
+          return NULL;
+        }
+    }
+>>>>>>> 9f92585a99ff67846767ba86c2cdd095a7316ca8
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);
   close(tls_data -> sockfd);
