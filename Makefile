@@ -1,13 +1,10 @@
-CFLAGS=-g
+CFLAGS=-g -Wall -Wextra
 
 all: WTFserver.o WTFclient.o utility.o md5.o fdstruct.o
-	$(CC) WTFserver.o utility.o md5.o fdstruct.o -o WTFserver -pthread -lncurses
-	$(CC) WTFclient.o utility.o fdstruct.o md5.o -o WTFclient -pthread -lncurses
+	$(CC) WTFserver.o utility.o md5.o fdstruct.o -o WTFserver -pthread
+	$(CC) WTFclient.o utility.o fdstruct.o md5.o -o WTFclient -pthread
 	cp WTFclient ./client/WTFclient
 	cp WTFserver ./server/WTFserver
-
-unittest: utility.o unittest.o md5.o fdstruct.o
-	$(CC) unittest.o utility.o md5.o fdstruct.o -o unittest -lncurses
 
 %.o: %.c
 	$(CC) $< -c -o $@ $(CFLAGS)
@@ -15,5 +12,5 @@ unittest: utility.o unittest.o md5.o fdstruct.o
 clean:
 	rm -f *.o WTFserver WTFclient
 
-clean ckot:
+clean_ckot:
 	rm -rf client/test_checkout

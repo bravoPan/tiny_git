@@ -1,4 +1,3 @@
-#define _XOPEN_SOURCE 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +17,6 @@
 #include <poll.h>
 #include <errno.h>
 #include "utility.h"
-#include "ftw.h"
 
 typedef struct _thread_data{
   int sockfd;
@@ -38,7 +36,6 @@ int sockfd = -1;
 int selfpipe[2];
 struct pollfd pollfds[2];
 HashMap *repoHashMap;
-int project_num;
 
 void output_error(int e){
   switch(e){
@@ -52,116 +49,36 @@ void output_error(int e){
   exit(0);
 }
 
-FolderStructureNode *create_repo(char *repo_name){
-    if(HashMapFind(repoHashMap, repo_name) != NULL){
-        printf("The repository %s has been existed on the server, cannot create again\n", repo_name);
-        return NULL;
-    }
-    // printf("The name is %s\n", repo_name);
-    if(mkdir(repo_name, 0777) == -1){
-        printf("%s\n",strerror(errno));
-    }
-    int dir_fd = dirfd(opendir(repo_name));
-    int mani_fd = openat(dir_fd,".Manifest", O_WRONLY | O_CREAT, 0666);
-    FolderStructureNode *init_dir;
-    FolderStructureNode *mani;
-    write(mani_fd, "0\n", 2);
-    init_dir = CreateFolderStructNode(0, strdup(repo_name), NULL, NULL, init_dir);
-    HashMapInsert(repoHashMap, init_dir -> name, init_dir);
-    return init_dir;
-}
+int test_receive_file(int socket){
+    char *metadata_src = ReceiveMessage(socket);
+    char *metadata = metadata_src + 8;
+    if(metadata_src == NULL){return -1;}
+    // printf("The project name is %s\n", file_name + 8);
+    printf("The project name is %s\n", metadata);
+    int project_name_len = strlen(metadata) + 1;
 
-void init_server_file_system(){
-    repoHashMap = InitializeHashMap(20);
-    DIR *cur_dir = opendir("./");
-    struct dirent *dir_d;
-    while((dir_d = readdir(cur_dir)) != 0){
-        __uint8_t type = dir_d -> d_type;
-        char *dir_name = dir_d -> d_name;
-        if(type == DT_DIR && IsProject(dir_name) == 0){
-            chdir(dir_name);
-            FolderStructureNode *root = ConstructStructureFromFile(".Manifest");
-            HashMapInsert(repoHashMap, dir_d -> d_name, root);
-            chdir("../");
-        }
+    unsigned char hash[16];
+    char filename[33];
+    memcpy(hash, metadata + project_name_len, 16);
+    int file_len = *(int *)(metadata + project_name_len + 16);
+    for(int i = 0;i < 16;++i){
+        int p,q;
+        p = hash[i] / 16;q = hash[i] % 16;
+        if(p < 10){filename[i * 2] = p + '0';} else {filename[i * 2] = p - 10 + 'A';}
+        if(q < 10){filename[i * 2 + 1] = q + '0';} else {filename[i * 2 + 1] = q - 10 + 'A';}
     }
-}
+    filename[32] = 0;
 
-int server_checkout(int cli_socket, char *repo){
-    if(HashMapFind(repoHashMap, repo) == NULL){
-        printf("The project %s is not managed, cannot be checkedout\n", repo);
-        return -1;
-    }else{
-        int repo_dir_fd = open(repo, O_RDONLY);
-        int repo_path_len = strlen(repo);
-        char *mani_path = malloc(repo_path_len + 1 + 9);
-        sprintf(mani_path, "%s/.Manifest", repo);
-        //send .Manifest
-        SendFile(cli_socket, mani_path);
-        FolderStructureNode *root = ConstructStructureFromFile(mani_path);
-        int file_size = GetFileNumFromMani(root);
-        //send file size
-        printf("Fiel size is %d\n", file_size);
-        char command[4] = {'n','u','l','l'};
-        SendMessage(cli_socket, command, (char *)&file_size);
-        //send all other files
-        SendFileFromMani(cli_socket, root, repo_dir_fd, repo);
-        close(repo_dir_fd);
-        free(root);
-    }
+    FILE *new_file = fopen(filename, "w");
+    int file_size  = *(int *)(metadata + project_name_len + 16);
+    char * text = malloc(file_size);
+    read_all(socket, text, file_size, 0);
+    fprintf(new_file, "%s", text);
+
+    free(metadata_src);
+    free(text);
+    fclose(new_file);
     return 0;
-}
-
-int exist_checking(const char* file_name){
-  if(HashMapFind(repoHashMap, file_name) == NULL){
-    return -1;
-  }
-  return 0;
-}
-void dest_function(char* repo_name){
-  if(exist_checking(repo_name) == -1){
-    printf("error: file %s not exist\n",repo_name);
-    return;
-  }
-  DeleteHashMapNode(repoHashMap,repo_name);
-  remove_dir(repo_name);
-  printf("deleted file : %s\n", repo_name);
-}
-void push_function(char* repo_name){
-  if(exist_checking(repo_name) == -1){
-    printf("error: file %s not exist\n",repo_name);
-    return;
-  }
-
-}
-
-
-int remove_dir_helper(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
-{
-    int rv = remove(fpath);
-
-    if (rv)
-        perror(fpath);
-
-    return rv;
-}
-
-int remove_dir(char *path)
-{
-    return nftw(path, remove_dir_helper, 64, FTW_DEPTH | FTW_PHYS);
-}
-
-
-
-int server_update(int cli_socket){
-    char *project_name = ReceiveMessage() + 8;
-    if(HashMapFind(repoHashMap, file_name) == NULL){
-        printf("The repo %s deoesn't exist on server, cannot update%s\n", project_name);
-        return -1;
-    }
-    //char command[8] = {'n', 'u', 'l', 'l'};
-    char repo_address = strcmp(project_name, "/.Manifest");
-    SendFile(cli_socket, repo_address);
 }
 
 void * handle_customer(void * tls){
@@ -169,54 +86,12 @@ void * handle_customer(void * tls){
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
   fcntl(tls_data -> sockfd,F_SETFD,flags | O_NONBLOCK);
   printf("Connection Established\n");
-  char str[1024];
   while(!globalStop){
-      char *receive_data = ReceiveMessage(tls_data -> sockfd);
-      if(receive_data == NULL){break;}
-      char *command = malloc(sizeof(char) * 5);
-      int file_size;
-      memcpy(command, receive_data, 4);
-      command[4] = 0;
-      memcpy(&file_size, receive_data + 4, sizeof(int));
-
-      if(strncmp(command, "ckot", 4) == 0){
-        server_checkout(tls_data -> sockfd, receive_data + 8);
-        free(receive_data);
-      }else if(strncmp(command, "push",4) == 0){
-        push_function(receive_data+8);
-      }else if(strncmp(command, "dest",4) == 0){
-        dest_function(receive_data+8);
-      }
-
-    //   else if(strncmp(str, "send", 4) == 0){
-    //       int filesize = *((int *)(str + 4));
-    //       char * filedata = malloc(filesize + 1);
-    //       read_all(tls_data -> sockfd,filedata,filesize,0);
-    //       filedata[filesize] = 0;
-    //       printf("%d\n",filesize);
-    //       printf("%s\n",filedata);
-    //       int md5_arr_size = (int)(sizeof(uint32_t)*4);
-    //       uint32_t* md5_arr = malloc(sizeof(uint32_t));
-    //       read_all(tls_data ->sockfd, md5_arr,md5_arr_size,0);
-    //       printf("%"PRIu32 " %"PRIu32 " %"PRIu32 " %"PRIu32"\n", md5_arr[0], md5_arr[1], md5_arr[2], md5_arr[3]);
-    //   }else if(strncmp(str, "delt", 4) == 0){
-    //       int path_size = *((int *) (str + 4));
-    //       char * path_str = malloc(path_size + 1);
-    //       read_all(tls_data -> sockfd, path_str, path_size, 0);
-    //       printf("The deleted file name is %s.\n", path_str);
-    //   }else if(strncmp(str, "cret", 4) == 0){
-    //       int path_size = *((int *) (str + 4));
-    //       char *path_str = malloc(path_size + 1);
-    //       read_all(tls_data -> sockfd, path_str, path_size, 0);
-    //       path_str[path_size] = 0;
-    //       create_repo(path_str);
-    //   }else if(strncmp(str, "ckot", 4) == 0){
-    //       int repo_size = *((int *)(str + 4));
-    //       char *repo_name = malloc(repo_size + 1);
-    //       read_all(tls_data -> sockfd, repo_name, repo_size, 0);
-    //       repo_name[repo_size] = 0;
-    //       printf("It's in the chekcing out \n");
-    //   }
+      if(test_receive_file(tls_data -> sockfd) == -1){break;}
+    //   char *receive_data = ReceiveMessage(tls_data -> sockfd);
+    //   if(receive_data == NULL){break;}
+    //   printf("%4s",receive_data);
+    //   free(receive_data);
   }
   printf("Connection Terminated\n");
   shutdown(tls_data -> sockfd,2);
@@ -254,8 +129,6 @@ int main(int argc,char ** argv){
   setsockopt(sockfd,SOL_SOCKET,SO_LINGER,&lin,sizeof(lin));
   int reuse = 1;
   setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(int));
-
-  init_server_file_system();
 
   struct sockaddr_in address;
   int addrlen = sizeof(address);
@@ -301,9 +174,7 @@ int main(int argc,char ** argv){
   thread_node * ptr = head_node;
   while(ptr != NULL){
     if(ptr -> tls_data != NULL){
-      if(ptr -> tls_data -> hasReturned == 0){
-	pthread_join(ptr->thread_h,NULL);
-      }
+	  pthread_join(ptr->thread_h,NULL);
       free(ptr -> tls_data);
     }
     thread_node * ptr2 = ptr -> next;

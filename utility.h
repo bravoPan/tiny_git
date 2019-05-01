@@ -18,6 +18,7 @@ index type hash nextFile folderHead
 typedef struct FolderStructureNode{
     int index;
     char type;
+    int version;
     /*0: Uninitialized
       1: File
       2: Folder
@@ -49,9 +50,9 @@ typedef struct FolderDiffNode{
 } FolderDiffNode;
 
 typedef struct MD5FileInfo{
-    //char file_name[256];
     uint8_t hash[16];
     int file_size;
+    char * data;
 }MD5FileInfo;
 
 typedef struct HashMapNode{
@@ -67,28 +68,24 @@ typedef struct HashMap{
 
 int GetHash(const char * str);
 HashMap * InitializeHashMap(int size);
-HashMapNode * HashMapInsert(HashMap * hmap, const char * key, void * nodePtr);
-HashMapNode * HashMapFind(HashMap * hmap, const char * key);
+HashMapNode * HashMapInsert(HashMap * hmap, const char * key,void * nodePtr);
+HashMapNode * HashMapFind(HashMap * hmap,const char * key);
 void DestroyHashMap(HashMap * hmap);
-FolderStructureNode * ConstructStructureFromPath(const char * path);
+//FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
 // return NULL if fails
-FolderStructureNode * ConstructStructureFromFile(const char *path);
-FolderStructureNode* CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
-FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
-FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path);
+FolderStructureNode * ConstructStructureFromFile(const char * path);
+FolderStructureNode * CreateFolderStructNode(char type,const char * name,const char * hash,FolderStructureNode * nextFile,FolderStructureNode * folderHead);
+FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree,FolderStructureNode * newTree);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);
 void DestroyDifference(FolderDiffNode * diff);
-void ApplyDiff(FolderStructureNode * oldTree, FolderDiffNode * diff);
-void RevertDiff(FolderStructureNode * newTree, FolderDiffNode * diff);
-void SerializeStructure(FolderStructureNode * tree, FILE *fd);
-void SerializeDifference(FolderDiffNode * diff, FILE *fd);
-int GetFileNumFromMani(FolderStructureNode *root);
-//equal 0, fail -1
-int CompareMD5(uint8_t md5_1, uint8_t md5_2);
+void ApplyDiff(FolderStructureNode * oldTree,FolderDiffNode * diff);
+void RevertDiff(FolderStructureNode * newTree,FolderDiffNode * diff);
+void SerializeStructure(FolderStructureNode * tree,FILE *fd);
+void SerializeDifference(FolderDiffNode * diff,FILE * fd);
 
-uint32_t ComputeCRC32(const char * data, int len);
+//uint32_t ComputeCRC32(const char * data,int len);
 void ComputeMD5(const char * data, int len);
 
 /* Types of command:
@@ -99,20 +96,20 @@ void ComputeMD5(const char * data, int len);
     pushs
     dist
 */
-int SendMessage(int sockfd, char command[4], const char *msg);
+int SendMessage(int sockfd, char command[4], const char *msg,int msg_len);
 //Send message length first, then message body
 void SendPacket(int socket, const char * pkt);
 /*SendFile protocol
 256(name) 16(hash) 4(file_size) real content
 */
-void SendFile(int socket, const char * path);
+int SendFile(int socket, char *project_name, char *file_name);
 //Split the file into packets of fixed size, and send each packet sequentially.
 
-void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
+//void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
 
 void DeleteFile(int socket, const char * path);
 
-void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
+//void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
 
 char *ReceiveMessage(int sockfd);
 
@@ -121,15 +118,6 @@ char *ReceiveFile(int sockfd);
 
 // 0 for find success, -1 for find none
 int IsProject(const char *path);
-
-typedef struct ProgressBar{
-    int posX,posY;
-    int length;
-    int currProgress; //Max 100
-} ProgressBar;
-
-void InitializeGUI(void);
-void DrawProgressBar(ProgressBar * bar);
 
 void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);
 MD5FileInfo *GetMD5FileInfo(int file_fd);

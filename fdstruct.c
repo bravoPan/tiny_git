@@ -15,7 +15,7 @@ int ComputeNewIndex(FolderStructureNode * tree, int beginIndex){
 
 void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
   if(root == NULL){return;}
-  fprintf(fd, "%d %d ",root -> index, (int)root -> type);
+  fprintf(fd, "%d %d %d ",root -> index, (int)root -> type,root->version);
   if(root -> folderHead == NULL){
     fprintf(fd, "-1 ");
   } else {
@@ -53,12 +53,13 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   if(nodeCount == 0){return NULL;}
   FolderStructureNode ** nodearr = calloc(sizeof(FolderStructureNode *),nodeCount);
   int i,j;
-  int index,type,li,ri,hs;
+  int index,type,li,ri,hs,vernum;
   for(i = 0;i < nodeCount;++i){nodearr[i] = calloc(sizeof(FolderStructureNode),1);}
   for(i = 0;i < nodeCount;++i){
-    fscanf(fd," %d %d %d %d",&index,&type,&li,&ri);
+    fscanf(fd," %d %d %d %d %d",&index,&type,&vernum,&li,&ri);
     nodearr[index]->index = index;
     nodearr[index]->type = type;
+    nodearr[index]->version = vernum;
     if(li == -1){
       nodearr[index]->folderHead = NULL;
     } else {
@@ -79,15 +80,4 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   FolderStructureNode * result = nodearr[0];
   free(nodearr);
   return result;
-}
-
-FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path){
-    FolderStructureNode *temp = root;
-    while(temp != NULL){
-        if(strcmp(path, temp->name) == 0){
-            return temp;
-        }
-        temp = temp -> nextFile;
-    }
-    return NULL;
 }
