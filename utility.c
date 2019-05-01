@@ -242,6 +242,7 @@ void DeleteHashMapNode(HashMap * hmap, char* str){
     const char* tmp = hmap->map[i]->key;
         if(strcmp(str,tmp) ==0){
             pre->next = current->next;
+            break;
         }else{
             pre = current;
             current = current->next;
