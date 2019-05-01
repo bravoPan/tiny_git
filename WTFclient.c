@@ -65,7 +65,6 @@ int process_destroy(int argc, char ** argv){
     return 0;
 }
 
-
 void *receiveFromServer(void * unused){
   char buffer[BUFFERSIZE];
 
@@ -139,7 +138,7 @@ void connect_server(char * domainStr,char * portStr){
     }
 }
 
-void process_update(int argc,char ** argv){}
+// void process_update(int argc,char ** argv){}
 
 void process_create(int argc, char **argv){
     char *repo_name = argv[2];
@@ -271,7 +270,6 @@ int process_checkout(int argc, char **argv){
 
     write(manifest_pointer, content, file_size);
 
-
     char *temp_repo_name = strdup(repo_name);
     FolderStructureNode *root = ConstructStructureFromFile(strcat(temp_repo_name, "/.Manifest"));
 
@@ -284,8 +282,8 @@ int process_checkout(int argc, char **argv){
         char *path_data = ReceiveMessage(sockfd);
         int file_fd = open(path_data + 8, O_WRONLY);
         char *content_data = ReceiveFile(sockfd);
-        printf("The file path is %s\n", path_data + 8);
-        printf("The real content is %s\n", content_data + 256 + 16 + 4);
+        // printf("The file path is %s\n", path_data + 8);
+        // printf("The real content is %s\n", content_data + 256 + 16 + 4);
         int content_size = *((int *)(content_data + 256 + 16));
         write(file_fd, content_data + 256 + 16 + 4, content_size);
         close(file_fd);
@@ -298,8 +296,197 @@ int process_checkout(int argc, char **argv){
     return 0;
 }
 
-// int process_push(int argc, char **argv){
-// }
+// 1 u, 2 m, 3 a, 4 d
+void recur_add(FolderDiffNode *diff, FolderStructureNode *folder, char mode){
+    FolderDiffNode *new_node = calloc(sizeof(FolderDiffNode), 1);
+    while (folder != NULL) {
+        char type = folder -> type;
+        new_node -> name = strdup(mode);
+        new_node ->
+        switch (type) {
+            case 1:
+                new_node -> type = mode;
+                new_node -> oldHash = 0000;
+                memcpy(new_node -> newHash,  folder -> hash, 16);
+                diff -> nextFile = new_node;
+                diff = new_node;
+                break;
+            case 2:
+                new_node -> type = mode + 4;
+                diff -> folderHead = new_node;
+                diff = new_node;
+                recur_add(diff, folder -> folderHead, mode);
+                break;
+        }
+    }
+}
+
+// folder1 is sever, folder2 is client
+void compare_diff(FolderStructureNode *folder1, FolderStructureNode *folder2, FolderDiffNode *diff, char *project_name, char *cur_path){
+
+    HashMap *fd2_hmap =  InitializeHashMap(20);
+    //create fd1_map
+    FolderStructureNode *temp2 = folder2;
+    while(temp2 != NULL){
+        HashMapInsert(fd2_hmap, temp2 -> name, temp2);
+        temp2 = temp2 -> nextFile;
+    }
+
+    FolderStructureNode *temp1 = folder1;
+    while(temp1 != NULL){
+        // if the file on the server
+        char *temp1_name = temp1 -> name;
+        int temp1_path_len = strlen(cur_path) + 1 + strlen(temp1_name);
+        char *temp1_path = malloc(temp1_path_len + 1);
+        sprintf(temp1_path, "%s/%s", cur_path, temp1_name);
+        HashMapNode *temp2_hmap_node = HashMapFind(fd2_hmap, temp1_name);
+        FolderDiffNode *new_diff_node = calloc(sizeof(FolderDiffNode), 1);
+        new_diff_node -> name = temp1_name;
+        // The file exists on server, but does not on client
+        if(temp2_hmap_node == NULL){
+            if(temp1 -> type == 1){
+                new_diff_node -> type = 3;
+                memcpy(new_diff_node -> newHash, temp2_hmap_node -> hash, 16);
+                temp1 = temp1 -> nextFile;
+            }
+            if(temp1 -> type == 2){
+                new_diff_node -> type = 7;
+                diff -> folderHead = new_diff_node;
+                diff = new_diff_node;
+                // temp1 = temp1 -> folderHead;
+                recur_add(diff, temp1, 2);
+                // compare_diff(folder1 -> folderHead, )
+            }
+        }else {
+            // The file exists both on server and client
+            temp2_folder_node = temp2_hmap_node -> nodePtr;
+            MD5FileInfo *cur_file_info = GetMD5FileInfo(open(temp1_path, O_RDONLY));
+            uint8_t cur_file_md5 = cur_file_info -> hash; //cur_md5
+            unit8_t temp1_mani_md5 = temp1 -> hash; //server_mani
+            unit8_t temp2_mani_md5 = temp2_folder_node -> hash; //client_mani
+            // server_mani == client_mani, client_mani != cur_md5, client updated
+            if(CompareMD5(temp1_mani_md5, temp2_mani_md5) == 0 && CompareMD5(temp2_mani_md5, cur_file_md5) == -1){
+                if(temp1 -> type == 1){
+                    new_diff_node -> type = 1;
+                    memcpy(new_diff_node -> oldHash, temp2_mani_md5, 16);
+                    memcpy(new_diff_node -> newHash, cur_file_md5, 16);
+                }
+                if(temp1 -> type == 2)
+                    new_diff_node -> type = 5;
+            }
+            // server_mani != client_mani, client_mani == cur_md5, server updated
+            if(CompareMD5(temp1_mani_md5, temp2_mani_md5) == -1 && CompareMD5(temp2_mani_md5, cur_file_md5) == 0){
+                if(temp1 -> type == 1){
+                    new_diff_node -> type = 2;
+                    memcpy(new_diff_node -> oldHash, temp2_mani_md5, 16);
+                    memcpy(new_diff_node -> newHash, temp1_mani_md5, 16);
+                }
+                if(temp1 -> type == 2)
+                    new_diff_node -> type = 6;
+            }
+            // server_mani != client_mani, cient_mani != cur_md5, conflict
+            if(CompareMD5(temp1_mani_md5, temp2_mani_md5) == -1 && CompareMD5(temp2_mani_md5, cur_file_md5) == -1){
+                int choice;
+                printf("There is a conflict of file %s between server and the client, please choose one to preserve, 1 for server, 2 for cient.\n", temp1_name);
+                scanf("%d\n", &choice);
+                // Keep the server lastest
+                if(choice == 1){
+                    if(temp1 -> type == 1){
+                        new_diff_node -> type = 2;
+                        memcpy(new_diff_node -> oldHash, temp2_mani_md5, 16);
+                        memcpy(new_diff_node -> newHash, temp1_mani_md5, 16);
+                        diff -> nextFile = new_diff_node;
+                        diff = new_diff_node;
+                    }
+                    if(temp1 -> type == 2){
+                        new_diff_node -> type = 6;
+                        diff -> folderHead = new_diff_node;
+                        diff = new_diff_node;
+                        compare_diff(temp1 -> folderHead, temp2 -> folderHead, diff, project_name, temp1_path);
+                    }
+                }
+                if(choide == 2){
+                    if(temp1 -> type == 1){
+                        new_diff_node -> type = 1;
+                        memcpy(new_diff_node -> oldHash, temp1_mani_md5, 16);
+                        memcpy(new_diff_node -> newHash, cur_file_md5, 16);
+                        diff -> nextFile = new_diff_node;
+                        diff = new_diff_node;
+                    }
+                    if(temp1 -> type == 2){
+                        new_diff_node -> type = 5;
+                        diff -> folderHead = new_diff_node;
+                        diff = new_diff_node;
+                        compare_diff(temp1 -> folderHead, temp2 -> folderHead, diff, project_name, temp1_path);
+                    }
+                }
+            }
+    }
+
+    free(fd2_hmap);
+    // Find the difference set of server
+    HashMap *fd1_hmap = InitializeHashMap(20);
+    FolderDiffNode *diff_set_temp1 = folder1;
+    while (diff_set_temp1 != NULL) {
+        HashMapInsert(fd1_hmap, diff_set_temp1 -> name, diff_set_temp1);
+        diff_set_temp1 = diff_set_temp1 -> nextFile;
+    }
+    FolderStructureNode *diff_set_temp2 = folder2;
+    while (diff_set_temp2 != NULL) {
+        if(diff_set_temp2)
+    }
+
+    // FolderDiffNode *diff_set_temp1 = folder1;
+    // while (diff_set_temp1 != NULL) {
+    //     HashMapInsert(fd1_hmap, diff_set_temp1 -> name, diff_set_temp1);
+    //     diff_set_temp1 = diff_set_temp1 -> next;
+    // }
+}
+
+int process_update(int argc, char *argv){
+    char *project_name = argv[2];
+    if(IsProject(project_name) == -1){
+        printf("Project dose not exist on client, cannot be updated%s\n", project_name);
+        return -1;
+    }
+    char *mani_path = strcat(project_name, "/.Manifest");
+    FolderStructureNode *client_mani_root = ConstructStructureFromFile(mani_path);
+    int mani_len = strlen(mani_path);
+    char command[8] = {'u', 'p', 'd', 't'};
+    memcpy(command + 4, &mani_len, 4);
+    // Send project name to server
+    SendMessage(sockfd, command, mani_path);
+    // Receive server prjoect .Manifest
+    char *server_data = ReceiveFile(sockfd);
+    // Create a temp Mani file to receive the mani data from server
+    char *server_mani = server_data + 256 + 16 + 4;
+    FILE *temp_dir = open(strcmp(project_name, "/~Manifest"), "w");
+    fprintf(temp_dir, "%s", server_mani);
+    fclose(temp_dir);
+    char *server_mani_root = ConstructStructureFromFile("~/.Manifest");
+
+    // Compare the MD5 data to generate .Update files
+    FILE *update_fd = open(strcmp(project_name, "/.Update"), "w");
+
+    //HashMap *
+    FolderStructureNode *server_folder_first;
+    // Insert server nodes into hashmap
+    while(server_mani_root != NULL){
+        HashMap *server_hash_map = InitializeHashMap(20);
+        if(server_mani_root -> type == 1){
+            HashMapInsert(server_hash_map, server_mani_root -> name, server_mani_root);
+        }
+        server_mani_root = server_mani_root
+    }
+    free(server_folder_first);
+    fclose(update_fd);
+    remove(temp_dir);
+    free(server_data);
+    free(server_mani);
+    free(mani_path);
+    free(project_name);
+    free(server_mani_root);
+}
 
 void init_client_file_system(){
 
@@ -329,8 +516,7 @@ int main(int argc,char ** argv){
         connect_server(domain,port);
     }
 
-    if(globalStop)
-        return 0;
+    if(globalStop) return 0;
 
     int flags = fcntl(sockfd,F_GETFL,0);
     fcntl(sockfd,F_SETFL,flags | O_NONBLOCK);
@@ -348,6 +534,8 @@ int main(int argc,char ** argv){
         process_add(argc, argv);
     }else if(strcmp(argv[1], "push") == 0){
         process_push(argc, argv);
+    }else if(strcmp(argv[1], "update") == 0){
+        process_update(argc, argv);
     }
 
     pthread_join(receive_thread,NULL);

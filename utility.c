@@ -194,7 +194,7 @@ int GetHash(const char* str){
 
 HashMapNode * HashMapInsert(HashMap * hmap, const char * key, void * nodePtr){
     int SIZE = hmap -> size;
-    int hash_code = GetHash(key) % SIZE;
+    int hash_code = GetHash(key);
     HashMapNode * new_node = calloc(sizeof(HashMapNode),1);
     new_node -> key = strdup(key);
     new_node -> nodePtr = nodePtr;
@@ -325,7 +325,7 @@ void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_f
             //send path and the file
             char command[4] = {'n', 'u', 'l', 'l'};
             SendMessage(sockfd, command, new_path);
-            printf("The path is %s\n", new_path);
+            // printf("The path is %s\n", new_path);
             SendFile(sockfd, new_path);
         }
         else if(root -> type == 2){
@@ -421,4 +421,13 @@ MD5FileInfo *GetMD5FileInfo(int file_fd){
     memcpy(fileinfo->hash, file_md5, 16);
     free(file_md5);
     return fileinfo;
+}
+
+int CompareMD5(uint8_t *md5_1, uint8_t *md5_2){
+    int i;
+    for(i = 0; i < 16; i++){
+        if(md5_1[i] != md5_2)
+            return -1;
+    }
+    return 0;
 }

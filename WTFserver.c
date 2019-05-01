@@ -117,6 +117,17 @@ int exist_checking(const char* file_name){
   return 0;
 }
 
+int server_update(int cli_socket){
+    char *project_name = ReceiveMessage() + 8;
+    if(HashMapFind(repoHashMap, file_name) == NULL){
+        printf("The repo %s deoesn't exist on server, cannot update%s\n", project_name);
+        return -1;
+    }
+    //char command[8] = {'n', 'u', 'l', 'l'};
+    char repo_address = strcmp(project_name, "/.Manifest");
+    SendFile(cli_socket, repo_address);
+}
+
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
   int flags = fcntl(tls_data -> sockfd,F_GETFD,0);

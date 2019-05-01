@@ -5,7 +5,6 @@ int parse_port(char * port);
 ssize_t send_all(int socket,const void * data,size_t len,int sig);
 ssize_t read_all(int socket,void * data,size_t len,int sig);
 
-
 /* .Mainfest: The records of all files and folders (exclude the manifest)
     hash:  for folder, md5_hash for files
     <nodecount>
@@ -33,23 +32,24 @@ index type name oldhash newHash nextFile folderHead
 */
 
 typedef struct FolderDiffNode{
-    char project[256];
+    char name[256];
     char type;
     /*0: Uninitialized
-      1: Add new file
-      2: Delete file
-      3: Modified file
-      4: Add Folder
-      5: Delete Folder
+      1: Uplaod new file
+      2: Modified file
+      3: Add new file
+      4: Delete file
+      5: Upload folder
       6: Modified Folder
+      7: Add Folder
+      8: Delete Folder
     */
-    char *version;
     char oldHash[16],newHash[16];
     struct FolderDiffNode * nextFile, * folderHead;
 } FolderDiffNode;
 
 typedef struct MD5FileInfo{
-    char file_name[256];
+    //char file_name[256];
     uint8_t hash[16];
     int file_size;
 }MD5FileInfo;
@@ -72,6 +72,7 @@ HashMapNode * HashMapFind(HashMap * hmap, const char * key);
 void DestroyHashMap(HashMap * hmap);
 FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
+// return NULL if fails
 FolderStructureNode * ConstructStructureFromFile(const char *path);
 FolderStructureNode* CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead);
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree, FolderStructureNode * newTree);
@@ -84,14 +85,26 @@ void RevertDiff(FolderStructureNode * newTree, FolderDiffNode * diff);
 void SerializeStructure(FolderStructureNode * tree, FILE *fd);
 void SerializeDifference(FolderDiffNode * diff, FILE *fd);
 int GetFileNumFromMani(FolderStructureNode *root);
+//equal 0, fail -1
+int CompareMD5(uint8_t md5_1, uint8_t md5_2);
 
 uint32_t ComputeCRC32(const char * data, int len);
 void ComputeMD5(const char * data, int len);
 
+/* Types of command:
+    delt
+    null
+    updt
+    ckot
+    pushs
+    dist
+*/
 int SendMessage(int sockfd, char command[4], const char *msg);
 //Send message length first, then message body
 void SendPacket(int socket, const char * pkt);
-//Send packet length first, then packet data, finally packet checksum
+/*SendFile protocol
+256(name) 16(hash) 4(file_size) real content
+*/
 void SendFile(int socket, const char * path);
 //Split the file into packets of fixed size, and send each packet sequentially.
 
@@ -102,6 +115,7 @@ void DeleteFile(int socket, const char * path);
 void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
 
 char *ReceiveMessage(int sockfd);
+
 
 char *ReceiveFile(int sockfd);
 
