@@ -67,7 +67,7 @@ int test_receive_file(int socket){
         if(p < 10){filename[i * 2] = p + '0';} else {filename[i * 2] = p - 10 + 'A';}
         if(q < 10){filename[i * 2 + 1] = q + '0';} else {filename[i * 2 + 1] = q - 10 + 'A';}
     }
-    filename[32] = 0;
+    filename[33] = 0;
 
     FILE *new_file = fopen(filename, "w");
     int file_size  = *(int *)(metadata + project_name_len + 16);
@@ -87,22 +87,43 @@ int test_receive_file(int socket){
 //
 
 
+void handle_test_file(int socket){
+    int a = HandleRecieveFile(socket);
+    // printf("hello\n");
+}
+
 void * handle_customer(void * tls){
-  thread_data * tls_data = (thread_data *)tls;
-  int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
-  fcntl(tls_data -> sockfd,F_SETFD,flags | O_NONBLOCK);
-  printf("Connection Established\n");
-  while(!globalStop){
-      if(test_receive_file(tls_data -> sockfd) == -1){break;}
+    thread_data * tls_data = (thread_data *)tls;
+    int flags = fcntl(tls_data -> sockfd,F_GETFD,0);
+    fcntl(tls_data -> sockfd,F_SETFD,flags | O_NONBLOCK);
+    printf("Connection Established\n");
+    while(!globalStop){
+        char *receive_data = ReceiveMessage(tls_data -> sockfd);
+        if(strncmp(receive_data, "test", 4) == 0){
+            handle_test_file(tls_data -> sockfd);
+            int file_size = *(int *)(receive_data + 4);
+            printf("The fiel size is %d\n", file_size);
+            char *print_test = malloc(file_size + 1);
+            memcpy(print_test, receive_data + 8, file_size);
+            print_test[file_size] = '\0';
+            printf("The real %s\n", print_test);
+        }if(strncmp(receive_data, "tesf", 4) == 0){
+            // int file_size =*(int *)(receive_data + 4);
+            // printf("The fiel size is %d\n", file_size);
+            handle_test_file(tls_data -> sockfd);
+
+        }
+    //   if(test_receive_file(tls_data -> sockfd) == -1){break;}
+    //   HandleRecieveFile(tls_data -> sockfd);
     //   char *receive_data = ReceiveMessage(tls_data -> sockfd);
     //   if(receive_data == NULL){break;}
     //   printf("%4s",receive_data);
     //   free(receive_data);
-  }
-  printf("Connection Terminated\n");
-  shutdown(tls_data -> sockfd,2);
-  close(tls_data -> sockfd);
-  tls_data -> hasReturned = 1;
+    }
+    printf("Connection Terminated\n");
+    shutdown(tls_data -> sockfd,2);
+    close(tls_data -> sockfd);
+    tls_data -> hasReturned = 1;
 
   return NULL;
 }

@@ -71,7 +71,36 @@ int SendMessage(int sockfd, char command[4], const char * msg,int msg_len){
         printf("Socket %d send massage protocal step 3 fails\n", sockfd);
         return -1;
     }
+    printf("Send success\n");
     return 0;
+}
+
+char *convert_hexmd5_to_path(unsigned char hash[16]){
+    char *filename = malloc(32);
+    for(int i = 0;i < 16;++i){
+        int p,q;
+        p = hash[i] / 16;q = hash[i] % 16;
+        if(p < 10){filename[i * 2] = p + '0';} else {filename[i * 2] = p - 10 + 'A';}
+        if(q < 10){filename[i * 2 + 1] = q + '0';} else {filename[i * 2 + 1] = q - 10 + 'A';}
+    }
+    // filename[32] = 0;
+    return filename;
+}
+
+char *convert_path_to_hexmd5(char filename[32]){
+    char *hash = malloc(16);
+    int i;
+    for(i = 0; i < 16; i++){
+        char a = filename[2 * i];
+        char b = filename[2 * i + 1];
+        int p, q;
+        if('A' <= a && a <= 'F'){p = a - 'A' + 10;}
+        if('0' <= a && a <= '9'){p = a - '0';}
+        if('A' <= b && b <= 'F'){q = b - 'A' + 10;}
+        if('0' <= b && b <= '9'){q = b - '0';}
+        hash[i] = (char)(p * 16 + q);
+    }
+    return hash;
 }
 
 // project_name \0 hash file_len content
@@ -128,11 +157,12 @@ char * ReceiveMessage(int sockfd){
         return NULL;
     }
     int file_size = *((int *)(recieve_str + 4));
-    recieve_str = realloc(recieve_str, file_size + 8 + 1);
+    recieve_str = realloc(recieve_str, file_size + 8);
     if(read_all(sockfd, recieve_str + 8, file_size, 0) == -1){
         printf("Socket %d recieve message step 3 fails\n", sockfd);
         return NULL;
     }
+    printf("Receive Success\n");
     return recieve_str;
 }
 
@@ -162,27 +192,128 @@ char * ReceiveMessage(int sockfd){
 //     send_all(sockfd, text, file_size, 0);
 // }
 
-/*
-char * ReceiveFile(int sockfd){
-    char *data = malloc(256 + 16 + 4);
-    char *name_data = ReceiveMessage(sockfd);
-    int name_size = *((int *)(name_data + 4));
-    memcpy(data, name_data + 8, name_size);
-    data[name_size] = 0;
-    //read hash
-    read_all(sockfd, data + 256, 16, 0);
-    //read content size
-    int content_size;
-    read_all(sockfd, &content_size, 4, 0);
-    //copy content
-    memcpy(data + 256 + 16, &content_size, 4);
-    data = realloc(data, 256 + 16 + 4 + content_size);
-    //read content
-    read_all(sockfd, data + 256 + 16 + 4, content_size, 0);
-    free(name_data);
-    return data;
+// file name could be hashp[16] or .Manifest
+// file_szie content
+char* ReceiveFile(int sockfd, const char *project_name, const char *file_name){
+    int project_name_len = strlen(project_name);
+    // int file_name_len = strlen(file_name);
+
+    int msg_size = project_name_len + 1;
+    char *metadata = malloc(msg_size);
+    memcpy(metadata, project_name, project_name_len);
+    metadata[project_name_len] = '\0';
+
+    if(strcmp(file_name, ".Manifest") == 0){
+        msg_size += 9;
+        // file_name_len = 9;
+        memcpy(metadata + project_name_len + 1, ".Manifest", 9);
+    }else{
+        // file_name_len = 16;
+        msg_size += 32;
+        // char *temp_project_name = malloc(project_name_len + 1 + file_name_len);
+        // sprintf(temp_project_name, "%s/%s", project_name, file_name);
+        // int fd = open(temp_project_name, O_RDONLY);
+        // MD5FileInfo *md5_info = GetMD5FileInfo(fd);
+        // int file_size = md5_info -> file_size;
+        // uint8_t *hash = md5_info -> hash;
+        // char hash_value[16];
+        // strdup()
+        char *hash_path = convert_hexmd5_to_path(strdup(file_name));
+        memcpy(metadata + project_name_len + 1, hash_path, 32);
+        // close(fd);
+        // free(temp_project_name);
+        free(hash_path);
+    }
+
+    // memcpy(metadata + project_name_len + 1, hash, 16);
+    // memcpy(metadata + project_name_len + 1 + 16, file_name, file_name_len);
+
+    char command[4] = {'r', 'e', 'c', 'v'};
+    SendMessage(sockfd, command, metadata, msg_size);
+    free(metadata);
+
+    int handle_msg_size;
+    read_all(sockfd, &handle_msg_size, 4, 0);
+    char *ret_msg = malloc(handle_msg_size + 4);
+    memcpy(ret_msg, &handle_msg_size, 4);
+    read_all(sockfd, ret_msg + 4, handle_msg_size, 0);
+    // char *ret_msg = malloc(handle_msg_size + 4);
+
+    // read_all(sockfd, ret_msg, handle_msg_size, 0);
+    return ret_msg;
 }
-*/
+
+int HandleRecieveFile(int sockfd){
+    char *metadata_src = ReceiveMessage(sockfd);
+    char *metadata_contain_msg_len = metadata_src + 4;
+    char *metadata = metadata_contain_msg_len + 4;
+
+    int msg_len = *(int*)metadata_contain_msg_len;
+
+    if(metadata_src == NULL){return -1;}
+
+    int project_name_len = strlen(metadata);
+    int file_len = msg_len - project_name_len - 1;
+    char *file_name;
+    if(file_len == 9){
+        file_name = malloc(9);
+        memcpy(file_name, ".Manifest", 9);
+    }
+    if(file_len == 32){
+        // save for name
+        // file_len = 33;
+        file_name = malloc(33);
+        // char hash[32];
+        memcpy(file_name, metadata + project_name_len + 1, 32);
+        file_name[32] = 0;
+        // file_name = convert_hexmd5_to_path(hash);
+
+        // printf("The md5 is %s\n", file_name);
+        // file_name = convert_hexmd5_to_path(hash);
+        // file_name = malloc(16);
+        // memcpy(file_name, metadata_contain_msg_len, 16);
+    }
+
+    char *file_path = malloc(project_name_len + 2 + file_len);
+
+    sprintf(file_path, "%s/%s", metadata, file_name);
+
+    int fd = open(file_path, O_RDONLY);
+    char *content = (char *)GetMD5FileInfo(fd) -> data;
+    int content_len = strlen(content);
+    // char *ret_data = malloc(content_len + 4);
+    send_all(sockfd, &content_len, 4, 0);
+    send_all(sockfd, content, content_len, 0);
+
+    // send_all(sockfd, )
+    // char hash[16];
+    // memcpy(hash, metadata + project_name_len + 1, 16);
+    free(metadata_src);
+    free(file_name);
+    free(file_path);
+    free(content);
+    return 0;
+}
+
+// char * ReceiveFile(const project_name, char *file_name){
+    // char *data = malloc(256 + 16 + 4);
+    // char *name_data = ReceiveMessage(sockfd);
+    // int name_size = *((int *)(name_data + 4));
+    // memcpy(data, name_data + 8, name_size);
+    // data[name_size] = 0;
+    // //read hash
+    // read_all(sockfd, data + 256, 16, 0);
+    // //read content size
+    // int content_size;
+    // read_all(sockfd, &content_size, 4, 0);
+    // //copy content
+    // memcpy(data + 256 + 16, &content_size, 4);
+    // data = realloc(data, 256 + 16 + 4 + content_size);
+    // //read content
+    // read_all(sockfd, data + 256 + 16 + 4, content_size, 0);
+    // free(name_data);
+    // return data;
+// }
 
 /*
 void DeleteFile(int socket, const char * path){
@@ -359,35 +490,18 @@ void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_f
 }
 */
 
-// FolderStructureNode *ConstructStructureFromPath(const char * path){
-//     DIR * dd = opendir(path);
-//     FolderStructureNode *root = calloc(sizeof(FolderStructureNode*), 1);
-//     root -> index = 0;
-//     root -> type = '2';
-//     root -> name = path;
-//     root -> folderHead = 0;
-//     FolderStructureNode *temp = root;
-//     if(dd == NULL){
-//         fprintf(stderr, "Invalid path:  %s\n", path);
-//         return -1;
-//     }
-//     struct dirent * dir_strct;
-//     int index = 1;
-//
-//     while((dir_strct = readdir(dd)) != NULL){
-//         char *name = NULL;
-//         FolderStructureNode *next_node =  calloc(sizeof(FolderStructureNode *), 1);
-//         next_node -> index = index;
-//         __uint8_t dir_type = dir_strct -> d_type;
-//         switch (dir_type) {
-//             next_node ->
-//             case DT_REG:
-//         }
-//     }
-// }
+FolderStructureNode *SearchStructNodeLayer(const char *name, FolderStructureNode *root){
+    // if(root )
+    FolderStructureNode *temp = root -> folderHead;
+    while (temp != NULL) {
+        if(strcmp(temp -> name, name) == 0)
+            return temp;
+        temp = temp -> nextFile;
+    }
+    return NULL;
+}
 
-
-FolderStructureNode * CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead){
+FolderStructureNode * CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead, int version){
     FolderStructureNode *node = calloc(sizeof(FolderStructureNode), 1);
     node -> type = type;
     memcpy(node -> name, name, strlen(name) + 1);
@@ -398,6 +512,7 @@ FolderStructureNode * CreateFolderStructNode(const char type, const char *name, 
     }
     node -> nextFile = nextFile;
     node -> folderHead = folderHead;
+    node -> version = version;
     return node;
 }
 

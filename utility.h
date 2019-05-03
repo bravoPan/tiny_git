@@ -49,6 +49,11 @@ typedef struct FolderDiffNode{
     struct FolderDiffNode * nextFile, * folderHead;
 } FolderDiffNode;
 
+// typedef struct UpdateInfo{
+//     char *file_name;
+//     char
+// }
+
 typedef struct MD5FileInfo{
     uint8_t hash[16];
     int file_size;
@@ -75,7 +80,11 @@ void DestroyHashMap(HashMap * hmap);
 void PrintHashMap(HashMap * hmap);
 // return NULL if fails
 FolderStructureNode * ConstructStructureFromFile(const char * path);
-FolderStructureNode * CreateFolderStructNode(char type,const char * name,const char * hash,FolderStructureNode * nextFile,FolderStructureNode * folderHead);
+
+FolderStructureNode * CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead, int version);
+
+FolderStructureNode *SearchStructNodeLayer(const char *name, FolderStructureNode *root);
+
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree,FolderStructureNode * newTree);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
 void DestroyStructure(FolderStructureNode * tree);
@@ -113,11 +122,14 @@ void DeleteFile(int socket, const char * path);
 
 char *ReceiveMessage(int sockfd);
 
-
-char *ReceiveFile(int sockfd);
-
+char *ReceiveFile(int sockfd, const char *project_name, const char *file_name);
+int HandleRecieveFile(int sockfd);
 // 0 for find success, -1 for find none
 int IsProject(const char *path);
 
 void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);
+
 MD5FileInfo *GetMD5FileInfo(int file_fd);
+
+char *convert_path_to_hexmd5(char filename[32]);
+char *convert_hexmd5_to_path(unsigned char hash[16]);

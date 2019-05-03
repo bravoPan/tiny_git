@@ -13,6 +13,7 @@ int ComputeNewIndex(FolderStructureNode * tree, int beginIndex){
   return ComputeNewIndex(tree -> nextFile, n);
 }
 
+// index type version folderHead nextFile
 void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
   if(root == NULL){return;}
   fprintf(fd, "%d %d %d ",root -> index, (int)root -> type,root->version);
