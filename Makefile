@@ -1,4 +1,4 @@
-CFLAGS=-g -Wall -Wextra
+CFLAGS=-g -Wall
 
 all: WTFserver.o WTFclient.o utility.o md5.o fdstruct.o
 	$(CC) WTFserver.o utility.o md5.o fdstruct.o -o WTFserver -pthread
@@ -14,3 +14,6 @@ clean:
 
 clean_ckot:
 	rm -rf client/test_checkout
+
+# one_test:
+# 	./WTFserver
