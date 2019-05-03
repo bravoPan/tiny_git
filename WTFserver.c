@@ -80,6 +80,12 @@ int test_receive_file(int socket){
     fclose(new_file);
     return 0;
 }
+// first 4 : commands
+// second 4 : message size/ metadata length
+// project name
+// hash
+//
+
 
 void * handle_customer(void * tls){
   thread_data * tls_data = (thread_data *)tls;
