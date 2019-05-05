@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include "utility.h"
 
+char *combine_path(const char* par_path, const char * cur_path);
+
 int parse_port(char *port){
     if(port == NULL){output_error(0);}
     int len = strlen(port);
@@ -76,14 +78,14 @@ int SendMessage(int sockfd, char command[4], const char * msg,int msg_len){
 }
 
 char *convert_hexmd5_to_path(unsigned char hash[16]){
-    char *filename = malloc(32);
+    char *filename = malloc(33);
     for(int i = 0;i < 16;++i){
         int p,q;
         p = hash[i] / 16;q = hash[i] % 16;
         if(p < 10){filename[i * 2] = p + '0';} else {filename[i * 2] = p - 10 + 'A';}
         if(q < 10){filename[i * 2 + 1] = q + '0';} else {filename[i * 2 + 1] = q - 10 + 'A';}
     }
-    // filename[32] = 0;
+    filename[32] = 0;
     return filename;
 }
 
@@ -101,41 +103,6 @@ char *convert_path_to_hexmd5(char filename[32]){
         hash[i] = (char)(p * 16 + q);
     }
     return hash;
-}
-
-// project_name \0 hash file_len content
-int SendFile(int sockfd, char *project_name, char *file_name){
-    int project_name_len = strlen(project_name);
-    int total_len = project_name_len + 1 + strlen(file_name);
-    char *temp_project_name = malloc(total_len);
-    sprintf(temp_project_name, "%s/%s", project_name, file_name);
-    int fd = open(temp_project_name, O_RDONLY);
-    MD5FileInfo *md5_info = GetMD5FileInfo(fd);
-    int file_size = md5_info -> file_size;
-    uint8_t *hash = md5_info -> hash;
-    char *content = md5_info -> data;
-    close(fd);
-
-    // realloc the temp to contain metadata
-    int metadata_len = project_name_len + 1 + 16 + 4;
-    temp_project_name = realloc(temp_project_name, metadata_len);
-    temp_project_name[project_name_len] = '\0';
-    memcpy(temp_project_name + project_name_len + 1, hash, 16);
-    memcpy(temp_project_name + project_name_len + 1 + 16, &file_size, 4);
-
-    //send file name
-    char command[4] = {'s', 'e', 'n', 'd'};
-
-    SendMessage(sockfd, command, temp_project_name, metadata_len);
-    // send_all(sockfd, hash, 16, 0);
-    // printf("The project name is %s\n", project_name);
-    // printf("The hash is %s\n", );
-
-    //send text
-    send_all(sockfd, content, file_size, 0);
-    free(content);
-    free(temp_project_name);
-    return 0;
 }
 
 /*Receive protocol
@@ -166,31 +133,187 @@ char * ReceiveMessage(int sockfd){
     return recieve_str;
 }
 
-/*SendFile protocol
-256(name) 16(hash) 4(file_size) real content
-*/
-// void SendFile(int sockfd, const char * path){
-//     int fd = open(path,O_RDONLY);
-//     MD5FileInfo *md5_info = GetMD5FileInfo(fd);
-//     int file_size = md5_info -> file_size;
-//     uint8_t *hash = md5_info -> hash;
-//     // printf("The file size is %d\n", file_size);
-//     // printf("The file name is %s\n", file_name);
-//     // printf("The has\n", );
-//     close(fd);
-//
-//     fd = open(path, O_RDONLY);
-//     //send file name
-//     char command[4] = {'n', 'u', 'l', 'l'};
-//     SendMessage(sockfd, command, );
-//     send_all(sockfd, hash, 16, 0);
-//
-//     //send text
-//     char *text = malloc(file_size);
-//     read(fd, text, file_size);
-//     send_all(sockfd, &file_size, 4, 0);
-//     send_all(sockfd, text, file_size, 0);
-// }
+void HandleSendFile(int sockfd, char *metadata_src){
+    int msg_len = *(int *)(metadata_src + 4);
+    char *metadata = metadata_src + 8;
+    int project_name_len = strlen(metadata);
+    char hash[16];
+
+    memcpy(hash, metadata + project_name_len + 1, 16);
+    char *project_name = malloc(project_name_len + 1);
+    memcpy(project_name, metadata, project_name_len);
+    project_name[project_name_len] = 0;
+    char *str_hash = convert_hexmd5_to_path((unsigned char *)hash);
+    char *file_path = combine_path(project_name, str_hash);
+    int content_len = *(int *)(metadata + project_name_len + 1 + 16);
+    // char *content = metadata + project_name_len + 1 + 16 + 4;
+    char *content = malloc(content_len);
+    read_all(sockfd, content, content_len, 0);
+
+    uint32_t file_output_hash[4];
+    GetMD5((uint8_t *)content, content_len, file_output_hash);
+    if(memcmp(file_output_hash, hash, 16) != 0){
+        int fail = -1;
+        send_all(sockfd, &fail, 4, 0);
+        free(project_name);
+        free(str_hash);
+        free(file_path);
+        return;
+    }
+    if(IsProject(project_name) == -1){
+        int fail = -1;
+        send_all(sockfd, &fail, 4, 0);
+        free(project_name);
+        free(str_hash);
+        free(file_path);
+        return;
+    }
+    int file_fd = open(file_path, O_WRONLY|O_CREAT, 0666);
+    int succ = 0;
+    send_all(sockfd, &succ, 4, 0);
+
+    write(file_fd, content, content_len);
+    close(file_fd);
+    free(project_name);
+    free(str_hash);
+    free(file_path);
+}
+
+
+int PushVersion(int sockfd, char *project_name){
+    char *file_path = combine_path(project_name, ".Manifest");
+    int project_name_len = strlen(project_name);
+    FolderStructureNode *client_root = ConstructStructureFromFile(file_path);
+    int client_version = client_root -> version + 1;
+    int client_mini_fd = open(file_path, O_RDONLY);
+    MD5FileInfo *client_mani_md5info = GetMD5FileInfo(client_mini_fd);
+    close(client_mini_fd);
+
+    char *client_mani = client_mani_md5info -> data;
+    int client_mani_len = client_mani_md5info -> file_size;
+    int msg_len = project_name_len + 1 + 4 + 4;
+    char *metadata = malloc(msg_len);
+
+    strcpy(metadata,project_name);
+    // copy version num
+    memcpy(metadata + project_name_len + 1, &client_version, 4);
+    // copy .Manifest len
+    memcpy(metadata + project_name_len + 1 + 4, &client_mani_len, 4);
+    free(file_path);
+    char command[4] = {'p', 'u', 's', 'h'};
+    if(SendMessage(sockfd, command, metadata, msg_len) == -1){
+        return -1;
+    }
+    send_all(sockfd, client_mani, client_mani_len, 0);
+    free(client_mani);
+    free(metadata);
+    free(client_mani_md5info);
+    return 0;
+}
+
+int HandlePushVersion(int sockfd, char *metadata_src){
+    int msg_len = *(int *)(metadata_src + 4);
+    char *metadata = metadata_src + 8;
+    int project_name_len = strlen(metadata);
+    char *project_name = malloc(project_name_len + 1);
+    memcpy(project_name, metadata, project_name_len);
+    project_name[project_name_len] = '\0';
+
+    if(IsProject(project_name) == -1){
+        printf("The project %s is not existed on the server, cannot fetched\n", project_name);
+        free(project_name);
+        return -1;
+    }
+
+    char *server_mani_path = combine_path(project_name, ".Manifest");
+    FolderStructureNode *server_root = ConstructStructureFromFile(server_mani_path);
+    int server_version = server_root -> version;
+    int client_version = *(int *)(metadata + project_name_len + 1);
+    if(server_version != client_version - 1){
+        int fail = -1;
+        send_all(sockfd, &fail, 4, 0);
+        free(project_name);
+        free(server_mani_path);
+        FreeFolderStructNode(server_root);
+        return -1;
+    }
+    int client_mani_len = *(int *)(metadata + project_name_len + 1 + 4);
+    char *client_mani = malloc(client_mani_len);
+    read_all(sockfd,client_mani,client_mani_len,0);
+    char *server_temp_mani_name = combine_path(project_name, "~Manifest");
+    int server_temp_mani_fd = open(server_temp_mani_name, O_WRONLY | O_CREAT, 0666);
+    write(server_temp_mani_fd, client_mani, client_mani_len);
+    close(server_temp_mani_fd);
+    free(project_name);
+    free(server_mani_path);
+    FreeFolderStructNode(server_root);
+    free(server_temp_mani_name);
+    int succ = 0;
+    send_all(sockfd, &succ,4, 0);
+    return 0;
+}
+
+int HandleComplete(int sockfd, char *metadata){
+    char * project_name = metadata + 8;
+    char *old_mani_path = combine_path(project_name, "~Manifest");
+    char *new_mani_path = combine_path(project_name, ".Manifest");
+    rename(old_mani_path, new_mani_path);
+    free(old_mani_path);
+    free(new_mani_path);
+    int succ = 0;
+    send_all(sockfd, &succ, 4, 0);
+    return 0;
+}
+
+// project_name \0 hash file_len content
+int SendFile(int sockfd, char *project_name, char *file_name, char * mani_hash){
+    int project_name_len = strlen(project_name);
+    int total_len = project_name_len + 2 + strlen(file_name);
+    char *temp_project_name = malloc(total_len);
+    sprintf(temp_project_name, "%s/%s", project_name, file_name);
+    int fd = open(temp_project_name, O_RDONLY);
+    MD5FileInfo *md5_info = GetMD5FileInfo(fd);
+    int file_size = md5_info -> file_size;
+    uint8_t *hash = md5_info -> hash;
+    char *content = md5_info -> data;
+    if(mani_hash != NULL){
+        if(memcmp(mani_hash,hash,16) != 0){
+            free(content);
+            free(md5_info);
+            free(temp_project_name);
+            return -1;
+        }
+    }
+    close(fd);
+
+    // realloc the temp to contain metadata
+    int metadata_len = project_name_len + 1 + 16 + 4;
+    temp_project_name = realloc(temp_project_name, metadata_len);
+    temp_project_name[project_name_len] = '\0';
+    memcpy(temp_project_name + project_name_len + 1, hash, 16);
+    memcpy(temp_project_name + project_name_len + 1 + 16, &file_size, 4);
+
+    //send file name
+    char command[4] = {'s', 'e', 'n', 'd'};
+
+    if(SendMessage(sockfd, command, temp_project_name, metadata_len) == -1){
+        return -1;
+    }
+    // send_all(sockfd, hash, 16, 0);
+    // printf("The project name is %s\n", project_name);
+    // printf("The hash is %s\n", );
+
+    //send text
+    send_all(sockfd, content, file_size, 0);
+    free(content);
+    free(temp_project_name);
+    free(md5_info);
+
+    // success - 0, fail - -1
+    int result;
+    read_all(sockfd, &result, 4, 0);
+    return result;
+}
 
 // file name could be hashp[16] or .Manifest
 // file_szie content
@@ -210,26 +333,17 @@ char* ReceiveFile(int sockfd, const char *project_name, const char *file_name){
     }else{
         // file_name_len = 16;
         msg_size += 32;
-        // char *temp_project_name = malloc(project_name_len + 1 + file_name_len);
-        // sprintf(temp_project_name, "%s/%s", project_name, file_name);
-        // int fd = open(temp_project_name, O_RDONLY);
-        // MD5FileInfo *md5_info = GetMD5FileInfo(fd);
-        // int file_size = md5_info -> file_size;
-        // uint8_t *hash = md5_info -> hash;
-        // char hash_value[16];
-        // strdup()
-        char *hash_path = convert_hexmd5_to_path(strdup(file_name));
+        char *hash_path = convert_hexmd5_to_path((unsigned char *)file_name);
         memcpy(metadata + project_name_len + 1, hash_path, 32);
         // close(fd);
         // free(temp_project_name);
         free(hash_path);
     }
 
-    // memcpy(metadata + project_name_len + 1, hash, 16);
-    // memcpy(metadata + project_name_len + 1 + 16, file_name, file_name_len);
-
     char command[4] = {'r', 'e', 'c', 'v'};
-    SendMessage(sockfd, command, metadata, msg_size);
+    if(SendMessage(sockfd, command, metadata, msg_size) == -1){
+        return NULL;
+    }
     free(metadata);
 
     int handle_msg_size;
@@ -237,14 +351,11 @@ char* ReceiveFile(int sockfd, const char *project_name, const char *file_name){
     char *ret_msg = malloc(handle_msg_size + 4);
     memcpy(ret_msg, &handle_msg_size, 4);
     read_all(sockfd, ret_msg + 4, handle_msg_size, 0);
-    // char *ret_msg = malloc(handle_msg_size + 4);
 
-    // read_all(sockfd, ret_msg, handle_msg_size, 0);
     return ret_msg;
 }
 
-int HandleRecieveFile(int sockfd){
-    char *metadata_src = ReceiveMessage(sockfd);
+int HandleRecieveFile(int sockfd, char *metadata_src){
     char *metadata_contain_msg_len = metadata_src + 4;
     char *metadata = metadata_contain_msg_len + 4;
 
@@ -288,12 +399,16 @@ int HandleRecieveFile(int sockfd){
     // send_all(sockfd, )
     // char hash[16];
     // memcpy(hash, metadata + project_name_len + 1, 16);
-    free(metadata_src);
+    //free(metadata_src);
     free(file_name);
     free(file_path);
     free(content);
     return 0;
 }
+
+// char *SendManifest(int sockfd, const char *project_name){
+//
+// }
 
 // char * ReceiveFile(const project_name, char *file_name){
     // char *data = malloc(256 + 16 + 4);
@@ -315,16 +430,6 @@ int HandleRecieveFile(int sockfd){
     // return data;
 // }
 
-/*
-void DeleteFile(int socket, const char * path){
-    int msg_len = 8, size = strlen(path);
-    send_all(socket, &msg_len, sizeof(int), 0);
-    char msg[8] = {'d', 'e', 'l', 't'};
-    memcpy(msg + 4, &size, sizeof(int));
-    send_all(socket, msg, msg_len, 0);
-    send_all(socket, path, size, 0);
-}
-*/
 
 HashMap * InitializeHashMap(int size){
     HashMap * new_map = calloc(sizeof(HashMap),1);
@@ -342,8 +447,8 @@ int GetHash(const char * str){
 }
 
 HashMapNode * HashMapInsert(HashMap * hmap, const char * key, void * nodePtr){
-    // int SIZE = hmap -> size;
-    int hash_code = GetHash(key);
+    int SIZE = hmap -> size;
+    int hash_code = GetHash(key) % SIZE;
     HashMapNode * new_node = calloc(sizeof(HashMapNode),1);
     new_node -> key = strdup(key);
     new_node -> nodePtr = nodePtr;
@@ -362,6 +467,13 @@ HashMapNode *HashMapFind(HashMap * hmap, const char * key){
         cur_node = cur_node -> next;
     }
     return NULL;
+}
+
+void FreeFolderStructNode(FolderStructureNode *root){
+    FolderStructureNode * tmp1 = root->nextFile, *tmp2 = root->folderHead;
+    free(root);
+    if(tmp1 != NULL){FreeFolderStructNode(tmp1);}
+    if(tmp2 != NULL){FreeFolderStructNode(tmp2);}
 }
 
 void DestroyHashMap(HashMap * hmap){
@@ -416,6 +528,7 @@ void PrintHashMap(HashMap * hmap){
     }
 }
 
+/*
 int create_file(const char * name, int parent_folder_fd, char type){
     int fd;
     switch (type) {
@@ -429,43 +542,44 @@ int create_file(const char * name, int parent_folder_fd, char type){
     }
     return fd;
 }
+*/
+
+void CreateEmptyFolderStructFromPath(const char *original_path){
+    // char *cur_path = malloc(256), token;
+    int index = 0, i, len = strlen(original_path);
+    char *path = malloc(len + 1);
+
+    for(i = 0; i < len; i++){
+        if(original_path[i] == '/'){
+            path[index] = 0;
+            // check if the folder is existed
+            DIR *dir_fd = opendir(path);
+            if(dir_fd){
+                closedir(dir_fd);
+            }
+            if(ENOENT == errno){
+                mkdir(path, 0777);
+            }
+            path[index++] = '/';
+        }else
+            path[index++] = original_path[i];
+    }
+
+    //if it is a dir
+    if(path[index] == '/')
+        return;
+    // check if the file eixst
+    path[index] = 0;
+    int file_fd = open(path, O_RDONLY);
+    if(file_fd < 0){
+        file_fd = open(path, O_WRONLY | O_CREAT, 0666);
+        close(file_fd);
+    }
+    free(path);
+}
+
 
 /*
-void CreateEmptyFolderStructFromMani(FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name){
-    while (root != NULL) {
-        int cur_len = strlen(parent_folder_name) + 1 + strlen(root -> name), new_folder_fd;
-        char *new_path = malloc(cur_len);
-        sprintf(new_path, "%s/%s", parent_folder_name, root -> name);
-
-        switch (root -> type) {
-            case 1:
-                create_file(root -> name, parent_folder_fd, 1);
-                break;
-            case 2:
-                new_folder_fd = create_file(new_path, parent_folder_fd, 2);
-                if(root -> folderHead != NULL)
-                    CreateEmptyFolderStructFromMani(root -> folderHead, new_folder_fd, new_path);
-        }
-        free(new_path);
-        root = root -> nextFile;
-    }
-}
-
-int GetFileNumFromMani(FolderStructureNode *root){
-    if(root == NULL)
-        return 0;
-    int cur_num = 0;
-    while (root != NULL) {
-        if(root -> folderHead == NULL){
-            cur_num++;
-        }
-        else
-            cur_num = cur_num + GetFileNumFromMani(root -> folderHead);
-        root = root -> nextFile;
-    }
-    return cur_num;
-}
-
 void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name){
 
     while (root != NULL) {
@@ -531,6 +645,16 @@ int IsProject(const char * project_name){
     return -1;
 }
 
+HashMap *hashify_layer(FolderStructureNode *root){
+    HashMap *fd_hmap = InitializeHashMap(20);
+    FolderStructureNode *temp = root -> folderHead;
+    while (temp != NULL) {
+        HashMapInsert(fd_hmap, temp -> name, temp);
+        temp = temp -> nextFile;
+    }
+    return fd_hmap;
+}
+
 MD5FileInfo * GetMD5FileInfo(int file_fd){
     MD5FileInfo * fileinfo = malloc(sizeof(MD5FileInfo));
     int file_size = 0,buff_size = 4096;
@@ -549,4 +673,12 @@ MD5FileInfo * GetMD5FileInfo(int file_fd){
     GetMD5((uint8_t *)text, file_size, (uint32_t *)fileinfo->hash);
     fileinfo->data = text;
     return fileinfo;
+}
+
+char *combine_path(const char* par_path, const char * cur_path){
+    int par_path_len = strlen(par_path);
+    int cur_path_len = strlen(cur_path);
+    char *new_path = malloc(par_path_len + 2 + cur_path_len);
+    sprintf(new_path, "%s/%s", par_path, cur_path);
+    return new_path;
 }

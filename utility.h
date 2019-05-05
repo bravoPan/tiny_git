@@ -18,11 +18,11 @@ index type hash nextFile folderHead
 typedef struct FolderStructureNode{
     int index;
     char type;
-    int version;
     /*0: Uninitialized
       1: File
       2: Folder
     */
+    int version;
     char name[256];
     uint8_t hash[16];
     struct FolderStructureNode * nextFile, * folderHead;
@@ -73,17 +73,23 @@ typedef struct HashMap{
 
 int GetHash(const char * str);
 HashMap * InitializeHashMap(int size);
+HashMap *hashify_layer(FolderStructureNode *root);
 HashMapNode * HashMapInsert(HashMap * hmap, const char * key,void * nodePtr);
 HashMapNode * HashMapFind(HashMap * hmap,const char * key);
 void DestroyHashMap(HashMap * hmap);
 //FolderStructureNode * ConstructStructureFromPath(const char * path);
 void PrintHashMap(HashMap * hmap);
 // return NULL if fails
+
+void CreateEmptyFolderStructFromPath(const char *original_path);
+
 FolderStructureNode * ConstructStructureFromFile(const char * path);
 
 FolderStructureNode * CreateFolderStructNode(const char type, const char *name, const char *hash, FolderStructureNode *nextFile, FolderStructureNode *folderHead, int version);
 
 FolderStructureNode *SearchStructNodeLayer(const char *name, FolderStructureNode *root);
+
+void FreeFolderStructNode(FolderStructureNode *root);
 
 FolderDiffNode * ConstructDifference(FolderStructureNode * oldTree,FolderStructureNode * newTree);
 FolderDiffNode * ConstructDifferenceFromFile(FILE * fd);
@@ -95,8 +101,7 @@ void SerializeStructure(FolderStructureNode * tree,FILE *fd);
 void SerializeDifference(FolderDiffNode * diff,FILE * fd);
 
 //uint32_t ComputeCRC32(const char * data,int len);
-void ComputeMD5(const char * data, int len);
-
+void GetMD5(const uint8_t *initial_msg, size_t initial_len, uint32_t * output_array);
 /* Types of command:
     delt
     null
@@ -111,7 +116,11 @@ void SendPacket(int socket, const char * pkt);
 /*SendFile protocol
 256(name) 16(hash) 4(file_size) real content
 */
-int SendFile(int socket, char *project_name, char *file_name);
+int SendFile(int socket, char *project_name, char *file_name, char * mani_hash);
+void HandleSendFile(int sockfd, char *metadata_src);
+int HandleComplete(int sockfd, char *project_name);
+int PushVersion(int sockfd, char *project_name);
+int HandlePushVersion(int sockfd, char *metadata_src);
 //Split the file into packets of fixed size, and send each packet sequentially.
 
 //void SendFileFromMani(int sockfd, FolderStructureNode *root, int parent_folder_fd, char *parent_folder_name);
@@ -123,7 +132,7 @@ void DeleteFile(int socket, const char * path);
 char *ReceiveMessage(int sockfd);
 
 char *ReceiveFile(int sockfd, const char *project_name, const char *file_name);
-int HandleRecieveFile(int sockfd);
+int HandleRecieveFile(int sockfd, char *metadata_src);
 // 0 for find success, -1 for find none
 int IsProject(const char *path);
 
@@ -131,5 +140,8 @@ void GetMD5(const uint8_t * data, size_t data_len, uint32_t * output_array);
 
 MD5FileInfo *GetMD5FileInfo(int file_fd);
 
+
 char *convert_path_to_hexmd5(char filename[32]);
 char *convert_hexmd5_to_path(unsigned char hash[16]);
+
+char *combine_path(const char* par_path, const char * cur_path);
