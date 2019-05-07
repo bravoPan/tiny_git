@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +10,11 @@
 #include <sys/socket.h>
 #include <sys/dir.h>
 #include <fcntl.h>
+#include <errno.h>
+
 #include "utility.h"
+#define __USE_XOPEN_EXTENDED 500
+#include <ftw.h>
 
 char *combine_path(const char* par_path, const char * cur_path);
 
@@ -79,7 +84,8 @@ int SendMessage(int sockfd, char command[4], const char * msg,int msg_len){
 
 char *convert_hexmd5_to_path(unsigned char hash[16]){
     char *filename = malloc(33);
-    for(int i = 0;i < 16;++i){
+    int i;
+    for(i = 0;i < 16;++i){
         int p,q;
         p = hash[i] / 16;q = hash[i] % 16;
         if(p < 10){filename[i * 2] = p + '0';} else {filename[i * 2] = p - 10 + 'A';}
@@ -133,6 +139,8 @@ char * ReceiveMessage(int sockfd){
     return recieve_str;
 }
 
+HistoryBuffer * currentPushHead = NULL;
+
 void HandleSendFile(int sockfd, char *metadata_src){
     int msg_len = *(int *)(metadata_src + 4);
     char *metadata = metadata_src + 8;
@@ -168,6 +176,23 @@ void HandleSendFile(int sockfd, char *metadata_src){
         free(file_path);
         return;
     }
+
+    /*  Write .History file:
+        Everytime the push command will push the client file on the server, so record the history
+    */
+    /*
+    char *history_path = combine_path(project_name, ".History");
+    FILE *history_fd = fopen(history_path, "a");
+    fprintf(history_fd, "%s\n", str_hash);
+    free(history_path);
+    fclose(history_fd);
+    */
+    HistoryBuffer * newNode = calloc(sizeof(HistoryBuffer),1);
+    memcpy(newNode->hash,str_hash,32);
+    newNode->hash[32] = 0;
+    newNode->nextBuffer = currentPushHead;
+    currentPushHead = newNode;
+
     int file_fd = open(file_path, O_WRONLY|O_CREAT, 0666);
     int succ = 0;
     send_all(sockfd, &succ, 4, 0);
@@ -178,7 +203,6 @@ void HandleSendFile(int sockfd, char *metadata_src){
     free(str_hash);
     free(file_path);
 }
-
 
 int PushVersion(int sockfd, char *project_name){
     char *file_path = combine_path(project_name, ".Manifest");
@@ -243,6 +267,7 @@ int HandlePushVersion(int sockfd, char *metadata_src){
     char *server_temp_mani_name = combine_path(project_name, "~Manifest");
     int server_temp_mani_fd = open(server_temp_mani_name, O_WRONLY | O_CREAT, 0666);
     write(server_temp_mani_fd, client_mani, client_mani_len);
+
     close(server_temp_mani_fd);
     free(project_name);
     free(server_mani_path);
@@ -250,6 +275,7 @@ int HandlePushVersion(int sockfd, char *metadata_src){
     free(server_temp_mani_name);
     int succ = 0;
     send_all(sockfd, &succ,4, 0);
+
     return 0;
 }
 
@@ -262,6 +288,33 @@ int HandleComplete(int sockfd, char *metadata){
     free(new_mani_path);
     int succ = 0;
     send_all(sockfd, &succ, 4, 0);
+    return 0;
+}
+
+// send_all two times, the first is for succ/faill
+// the second for fail content, basic format: (int)msg_len + (char *)content
+int HandleHistory(int sockfd, char *project_name){
+    if(IsProject(project_name) == -1){
+        printf("The project %s is not eixsted on the server, cannot checkout to the client\n", project_name);
+        int fail = -1;
+        send_all(sockfd, &fail, 4, 0);
+        return -1;
+    }
+    char *history_path = combine_path(project_name, ".History");
+    int history_fd = open(history_path, O_RDONLY);
+    MD5FileInfo *history_md5_info = GetMD5FileInfo(history_fd);
+    int history_size = history_md5_info -> file_size;
+    char *history = history_md5_info -> data;
+    char *ret_msg = malloc(4 + history_size);
+    memcpy(ret_msg, &history_size, 4);
+    memcpy(ret_msg + 4, history, history_size);
+    int succ = 0;
+    send_all(sockfd, &succ, 4, 0);
+    send_all(sockfd, ret_msg, history_size + 4, 0);
+    free(history);
+    free(ret_msg);
+    free(history_md5_info);
+    free(history_path);
     return 0;
 }
 
@@ -278,6 +331,8 @@ int SendFile(int sockfd, char *project_name, char *file_name, char * mani_hash){
     char *content = md5_info -> data;
     if(mani_hash != NULL){
         if(memcmp(mani_hash,hash,16) != 0){
+            int fail = -1;
+            read_all(sockfd, &fail, 4, 0);
             free(content);
             free(md5_info);
             free(temp_project_name);
@@ -297,11 +352,10 @@ int SendFile(int sockfd, char *project_name, char *file_name, char * mani_hash){
     char command[4] = {'s', 'e', 'n', 'd'};
 
     if(SendMessage(sockfd, command, temp_project_name, metadata_len) == -1){
+        int fail = -1;
+        read_all(sockfd, &fail, 4, 0);
         return -1;
     }
-    // send_all(sockfd, hash, 16, 0);
-    // printf("The project name is %s\n", project_name);
-    // printf("The hash is %s\n", );
 
     //send text
     send_all(sockfd, content, file_size, 0);
@@ -681,4 +735,56 @@ char *combine_path(const char* par_path, const char * cur_path){
     char *new_path = malloc(par_path_len + 2 + cur_path_len);
     sprintf(new_path, "%s/%s", par_path, cur_path);
     return new_path;
+}
+
+// file name is except the project name, assume the file name is 222/2.txt
+FolderStructureNode *remove_node_from_root(FolderStructureNode *root, const char *file_name){
+    FolderStructureNode *original_root = root;
+    int file_len = strlen(file_name), i, index = 0;
+    char name[256];
+    for(i = 0; i < file_len; i++){
+        if(file_name[i] == '/'){
+            name[index] = 0;
+            HashMap *hmap = hashify_layer(root);
+            HashMapNode *hmap_folder_node = HashMapFind(hmap, name);
+            if(hmap_folder_node == NULL){
+                printf("The file %s is not existed in the .Manifest, cannot remove\n", file_name);
+                return NULL;
+            }
+            root = (FolderStructureNode *)hmap_folder_node -> nodePtr;
+            DestroyHashMap(hmap);
+            index = 0;
+        }else{
+            name[index++] = file_name[i];
+        }
+    }
+
+    name[index] = 0;
+    FolderStructureNode *file_layer_folderHead = root -> folderHead;
+    if(strcmp(file_layer_folderHead -> name, name) == 0){
+        root -> folderHead = file_layer_folderHead -> nextFile;
+        return original_root;
+    }
+    while ((file_layer_folderHead -> nextFile) != NULL) {
+        if(strcmp((file_layer_folderHead -> nextFile) -> name, name) == 0){
+            file_layer_folderHead -> nextFile = file_layer_folderHead -> nextFile -> nextFile;
+            return original_root;
+        }
+        file_layer_folderHead = file_layer_folderHead -> nextFile;
+    }
+    printf("The file %s is not eixsted in the .Manifest, cannot remove\n", file_name);
+    return NULL;
+}
+
+int remove_dir_helper(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+    if (rv)
+        perror(fpath);
+    return rv;
+}
+
+int remove_dir(char *path)
+{
+    return nftw(path, remove_dir_helper, 64, FTW_DEPTH | FTW_PHYS);
 }

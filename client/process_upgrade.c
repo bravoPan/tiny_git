@@ -13,9 +13,23 @@ void read_update(int sockfd, FILE *update_fd, char *project_name){
         new_hash[32] = 0;
         char *file_path = NULL;int len = 0;
         getline(&file_path, (size_t *)&len, update_fd);
+        int file_len = strlen(file_path);
+        file_path[file_len-1] = 0;
         switch (mode) {
             case 'D':{
                 remove(file_path);
+                int project_name_len = strlen(project_name);
+                // int file_path_len = strlen(file_path);
+                // while (file_path[delimiter_index]) {
+                // }
+                char *mani_path = combine_path(project_name, ".Manifest");
+                FolderStructureNode *root = ConstructStructureFromFile(mani_path);
+                FILE *mani_fd = fopen(mani_path, "w");
+                root = remove_node_from_root(root, file_path + project_name_len + 1);
+                // root = remove_node_from_root(root, file_name);
+                SerializeStructure(root, mani_fd);
+                fclose(mani_fd);
+                free(mani_path);
                 break;
             }
             case 'M':case 'A':{

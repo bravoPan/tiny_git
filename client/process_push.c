@@ -28,7 +28,9 @@ int read_commit(int sockfd, FILE *commit_fd, char *project_name){
     char complete_command[4] = {'c', 'p', 'l', 't'};
     int msg_len = strlen(project_name) + 1;
     SendMessage(sockfd, complete_command, project_name, msg_len);
-    return 0;
+    int resu;
+    read_all(sockfd,&resu,4,0);
+    return resu;
 }
 
 int process_push(int sockfd, int argc, char **argv){
@@ -42,5 +44,14 @@ int process_push(int sockfd, int argc, char **argv){
     read_commit(sockfd, commit_fd, project_name);
     fclose(commit_fd);
     free(commit_path);
+
+    char *mani_path = combine_path(project_name, ".Manifest");
+    FolderStructureNode *root = ConstructStructureFromFile(mani_path);
+    root -> version += 1;
+    FILE *mani_fd = fopen(mani_path, "w");
+    SerializeStructure(root, mani_fd);
+    fclose(mani_fd);
+    FreeFolderStructNode(root);
+    free(mani_path);
     return 0;
 }

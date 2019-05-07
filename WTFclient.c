@@ -1,9 +1,8 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdint.h>
-#include <inttypes.h>
 #include <signal.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -121,7 +120,6 @@ int process_add(int argc, char **argv){
     int new_version = root -> version + 1;
     char *path = malloc(256), token;
     int index = 0, i, len = strlen(file_name);
-    // FolderStructureNode *parent = SearchStructNodeLayer(), ;
 
     for(i = 0; i < len; i++){
         if(file_name[i] == '/'){
@@ -176,12 +174,17 @@ int process_create(int argc, char **argv){
     }
 
     int i, msg_len = 8, str_size = strlen(repo_name);
-    send_all(sockfd, &msg_len, sizeof(int), 0);
-    char msg[8] = {'c', 'r', 'e', 't'};
-    memcpy(msg + 4, &str_size, sizeof(int));
-    send_all(sockfd, msg, msg_len, 0);
-    send_all(sockfd, repo_name, str_size, 0);
-
+    // send_all(sockfd, &msg_len, sizeof(int), 0);
+    char command[8] = {'c', 'r', 'e', 't'};
+    memcpy(command + 4, &str_size, 4);
+    // memcpy(msg + 4, &str_size, sizeof(int));
+    SendMessage(sockfd, command, repo_name, str_size);
+    int is_succ;
+    read_all(sockfd, &is_succ, 4, 0);
+    if(is_succ == -1){
+        printf("Connection error, cannot create project %s on the server\n", repo_name);;
+        return -1;
+    }
 
     if(mkdir(repo_name, 0777) == -1){
       printf("%s\n",strerror(errno));
@@ -564,6 +567,58 @@ void process_test_file(int argc, char **argv){
     write(1,"\n",1);
 }
 
+int process_history(int sockfd, int argc, char **argv){
+    char *project_name = argv[2];
+    int project_name_len = strlen(project_name);
+    if(IsProject(project_name) == -1){
+        printf("The project %s is not existed on the client, please check before checking history\n", project_name);
+        return -1;
+    }
+    char command[4] = {'h', 'i', 's', 't'};
+    if(SendMessage(sockfd, command, project_name, project_name_len) == -1){
+        printf("Connection error, cannot checkout repo %s history\n", project_name);
+        return -1;
+    }
+    int is_succ;
+    read_all(sockfd, &is_succ, 4, 0);
+    // char *history_metadata_src = ReceiveFile(project_name, ".History");
+    if(is_succ == -1){
+        printf("Connection error, cannot checkout repo %s history\n", project_name);
+        return -1;
+    }
+    int history_len;
+    read_all(sockfd, &history_len, 4, 0);
+    char *history = malloc(history_len);
+    read_all(sockfd, history, history_len, 0);
+    char *history_path = combine_path(project_name, ".History");
+    int history_fd = open(history_path, O_WRONLY | O_CREAT, 0666);
+    write(history_fd, history, history_len);
+    close(history_fd);
+    free(history_path);
+    free(history);
+    return 0;
+}
+
+int process_destroy(int sockfd, int argc, char **argv){
+    char *project_name = argv[2];
+    int project_name_len = strlen(project_name);
+    if(IsProject(project_name) == -1){
+        printf("The project %s is not existed on the client, please check before checking history\n", project_name);
+        return -1;
+    }
+    char command[4] = {'d', 'e', 's', 't'};
+    SendMessage(sockfd, command, project_name, project_name_len);
+    int is_succ;
+    read_all(sockfd, &is_succ, 4, 0);
+    if(is_succ == -1){
+        printf("Cannot connect to server, the project %s destroy error\n", project_name);
+        return -1;
+    }
+    remove_dir(project_name);
+    printf("Project %s destroy successfully\n", project_name);
+    return 0;
+}
+
 int main(int argc,char ** argv){
     if(argc < 2){output_error(0);}
     if(strcmp(argv[1],"configure") == 0){
@@ -618,15 +673,13 @@ int main(int argc,char ** argv){
         process_remove(sockfd, argc, argv);
     }else if(strcmp(argv[1], "currentversion") == 0){
         process_currentversion(sockfd, argc, argv);
+    }else if(strcmp(argv[1], "history") == 0){
+        process_history(sockfd, argc, argv);
+    }else if(strcmp(argv[1], "rollback") == 0){
+        process_rollback(sockfd, argc, argv);
+    }else if(strcmp(argv[1], "destroy")){
+        process_destroy(sockfd, argc, argv);
     }
-    // else if(strcmp(argv[1], "push") == 0)
-    //     process_push(argc, argv);
-    // }else if(strcmp(argv[1], "update") == 0){
-    //     process_update(argc, argv);
-    // }
-
-    //pthread_join(receive_thread,NULL);
-
     printf("finish\n");
     return 0;
 }

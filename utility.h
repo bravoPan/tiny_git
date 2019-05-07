@@ -1,3 +1,4 @@
+#include <stdint.h> 
 extern volatile char globalStop;
 
 void output_error(int errnum);
@@ -71,6 +72,12 @@ typedef struct HashMap{
     int size;
 } HashMap;
 
+typedef struct HistoryBuffer{
+    // int version_num;
+    char hash[33];
+    struct HistoryBuffer *nextBuffer;
+}HistoryBuffer;
+
 int GetHash(const char * str);
 HashMap * InitializeHashMap(int size);
 HashMap *hashify_layer(FolderStructureNode *root);
@@ -119,6 +126,7 @@ void SendPacket(int socket, const char * pkt);
 int SendFile(int socket, char *project_name, char *file_name, char * mani_hash);
 void HandleSendFile(int sockfd, char *metadata_src);
 int HandleComplete(int sockfd, char *project_name);
+int HandleHistory(int sockfd, char *project_name);
 int PushVersion(int sockfd, char *project_name);
 int HandlePushVersion(int sockfd, char *metadata_src);
 //Split the file into packets of fixed size, and send each packet sequentially.
@@ -145,3 +153,7 @@ char *convert_path_to_hexmd5(char filename[32]);
 char *convert_hexmd5_to_path(unsigned char hash[16]);
 
 char *combine_path(const char* par_path, const char * cur_path);
+
+FolderStructureNode *remove_node_from_root(FolderStructureNode *root, const char *file_name);
+
+int remove_dir(char *path);
