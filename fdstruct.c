@@ -13,9 +13,10 @@ int ComputeNewIndex(FolderStructureNode * tree, int beginIndex){
   return ComputeNewIndex(tree -> nextFile, n);
 }
 
+// index type version folderHead nextFile
 void RecursivePrintFdStruct(FolderStructureNode * root, FILE *fd){
   if(root == NULL){return;}
-  fprintf(fd, "%d %d ",root -> index, (int)root -> type);
+  fprintf(fd, "%d %d %d ",root -> index, (int)root -> type,root->version);
   if(root -> folderHead == NULL){
     fprintf(fd, "-1 ");
   } else {
@@ -51,40 +52,33 @@ FolderStructureNode * ConstructStructureFromFile(const char * path){
   int nodeCount;
   fscanf(fd," %d",&nodeCount);
   if(nodeCount == 0){return NULL;}
-  FolderStructureNode * nodearr = calloc(sizeof(FolderStructureNode),nodeCount);
+  FolderStructureNode ** nodearr = calloc(sizeof(FolderStructureNode *),nodeCount);
   int i,j;
-  int index,type,li,ri,hs;
+  int index,type,li,ri,hs,vernum;
+  for(i = 0;i < nodeCount;++i){nodearr[i] = calloc(sizeof(FolderStructureNode),1);}
   for(i = 0;i < nodeCount;++i){
-    fscanf(fd," %d %d %d %d",&index,&type,&li,&ri);
-    nodearr[index].index = index;
-    nodearr[index].type = type;
+    fscanf(fd," %d %d %d %d %d",&index,&type,&vernum,&li,&ri);
+    nodearr[index]->index = index;
+    nodearr[index]->type = type;
+    nodearr[index]->version = vernum;
     if(li == -1){
-      nodearr[index].folderHead = NULL;
+      nodearr[index]->folderHead = NULL;
     } else {
-      nodearr[index].folderHead = nodearr + li;
+      nodearr[index]->folderHead = nodearr[li];
     }
     if(ri == -1){
-      nodearr[index].nextFile = NULL;
+      nodearr[index]->nextFile = NULL;
     } else {
-      nodearr[index].nextFile = nodearr + ri;
+      nodearr[index]->nextFile = nodearr[ri];
     }
     for(j = 0;j < 16;++j){
       fscanf(fd," %X",&hs);
-      nodearr[index].hash[j] = hs;
+      nodearr[index]->hash[j] = hs;
     }
-    fscanf(fd," %s",nodearr[index].name);
+    fscanf(fd," %s",nodearr[index]->name);
   }
   fclose(fd);
-  return nodearr;
-}
-
-FolderStructureNode *SearchStructNode(FolderStructureNode *root, const char *path){
-    FolderStructureNode *temp = root;
-    while(temp != NULL){
-        if(strcmp(path, temp->name) == 0){
-            return temp;
-        }
-        temp = temp -> nextFile;
-    }
-    return NULL;
+  FolderStructureNode * result = nodearr[0];
+  free(nodearr);
+  return result;
 }

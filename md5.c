@@ -1,7 +1,6 @@
 /*
  * Simple MD5 implementation
  * Adapted from https://gist.github.com/creationix/4710780
- * Compile with: gcc -o md5 -O3 -lm md5.c
  */
 #include <stdio.h>
 #include <stdlib.h>

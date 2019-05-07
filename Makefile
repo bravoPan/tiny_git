@@ -1,19 +1,22 @@
 CFLAGS=-g
 
-all: WTFserver.o WTFclient.o utility.o md5.o fdstruct.o
-	$(CC) WTFserver.o utility.o md5.o fdstruct.o -o WTFserver -pthread -lncurses
-	$(CC) WTFclient.o utility.o fdstruct.o md5.o -o WTFclient -pthread -lncurses
+all: WTFserver.o WTFclient.o utility.o md5.o test.o client/process_upgrade.o client/process_commit.o client/process_push.o client/process_remove.o client/process_rollback.o fdstruct.o
+	$(CC) utility.o WTFserver.o md5.o fdstruct.o client/process_upgrade.o client/process_commit.o client/process_push.o client/process_remove.o client/process_rollback.o -o WTFserver -pthread
+	$(CC) WTFclient.o utility.o fdstruct.o md5.o client/process_upgrade.o client/process_commit.o client/process_push.o client/process_remove.o client/process_rollback.o -o WTFclient -pthread
+	$(CC) test.o utility.o md5.o fdstruct.o -o test
+	# $(CC)
 	cp WTFclient ./client/WTFclient
 	cp WTFserver ./server/WTFserver
-
-unittest: utility.o unittest.o md5.o fdstruct.o
-	$(CC) unittest.o utility.o md5.o fdstruct.o -o unittest -lncurses
 
 %.o: %.c
 	$(CC) $< -c -o $@ $(CFLAGS)
 
 clean:
-	rm -f *.o WTFserver WTFclient
+	rm -f *.o WTFserver WTFclient .DS_Store
+	rm -f ./client/*.o ./client/.DS_Store
 
-clean ckot:
-	rm -rf client/test_checkout
+clean_ckot:
+	rm -rf client/ttt
+
+# one_test:
+# 	./WTFserver
